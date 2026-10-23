@@ -1,0 +1,286 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Тренажер Як</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap">
+<style>
+/* Layout: one calm column. Header names the question word Як?, then progress dots, one task card with a writing line, and a single «Далі» button that never moves. Blue = question, green = answer. */
+:root {
+  --bg: #F1F4F8;
+  --surface: #FFFFFF;
+  --stage: #E6ECF4;
+  --ink: #1B2432;
+  --muted: #5A6678;
+  --line: #D2DAE5;
+  --why: #2B55D6;
+  --why-soft: #E2E9FD;
+  --on-why: #FFFFFF;
+  --because: #0E7A58;
+  --because-soft: #D9F2E8;
+  --font-display: "Unbounded", "Onest", system-ui, sans-serif;
+  --font-body: "Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11151C;
+    --surface: #1A212C;
+    --stage: #232C3A;
+    --ink: #E9EDF3;
+    --muted: #A1ADBF;
+    --line: #303A4A;
+    --why: #97ADFF;
+    --why-soft: #222D52;
+    --on-why: #0F1530;
+    --because: #5ED4A7;
+    --because-soft: #16392E;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11151C;
+  --surface: #1A212C;
+  --stage: #232C3A;
+  --ink: #E9EDF3;
+  --muted: #A1ADBF;
+  --line: #303A4A;
+  --why: #97ADFF;
+  --why-soft: #222D52;
+  --on-why: #0F1530;
+  --because: #5ED4A7;
+  --because-soft: #16392E;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.45;
+}
+button, input { font-family: inherit; }
+:focus-visible { outline: 3px solid var(--why); outline-offset: 2px; }
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* header */
+.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 12px; }
+.eyebrow { margin: 0 0 6px; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.pair { margin: 0; font: 700 clamp(1.6rem, 7vw, 2.1rem)/1.15 var(--font-display); color: var(--why); }
+.today { margin: 0; font-size: .85rem; color: var(--muted); white-space: nowrap; }
+.today b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.lead { margin: 0 0 16px; color: var(--muted); font-size: .95rem; }
+
+/* progress */
+.progress { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.count { margin: 0; font-size: .9rem; color: var(--muted); }
+.count b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.dots { display: flex; flex-wrap: wrap; gap: 8px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); }
+.dot.done { background: var(--because); border-color: var(--because); }
+.dot.now { border-color: var(--why); box-shadow: 0 0 0 3px var(--why-soft); }
+
+/* card */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+.task { display: flex; flex-direction: column; gap: 14px; }
+.cat { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.stage {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 14px;
+  min-height: 150px; padding: 18px 12px; background: var(--stage); border-radius: 14px;
+}
+.em { font-family: var(--font-emoji); font-size: clamp(2.8rem, 14vw, 4.6rem); line-height: 1; }
+.question { margin: 0; font-size: clamp(1.3rem, 5.6vw, 1.65rem); font-weight: 600; line-height: 1.35; text-wrap: balance; }
+.why { display: inline-block; padding: 0 .3em; border-radius: 8px; background: var(--why-soft); color: var(--why); font-weight: 700; }
+
+/* writing line */
+.write input {
+  display: block; width: 100%; height: 56px; padding: 0 14px;
+  font-size: 1.2rem; font-weight: 500;
+  background: var(--surface); color: var(--ink);
+  border: 2px solid var(--because); border-radius: 12px;
+}
+
+/* the one button */
+.btn {
+  width: 100%; min-height: 56px; margin-top: 14px; padding: 0 20px;
+  font-size: 1.1rem; font-weight: 700;
+  background: var(--why); color: var(--on-why);
+  border: 2px solid var(--why); border-radius: 12px; cursor: pointer;
+}
+
+/* summary */
+.sum h2 { margin: 0; font: 700 1.4rem/1.2 var(--font-display); }
+.stat { padding: 14px; background: var(--stage); border-radius: 12px; }
+.stat b { display: block; font: 700 2rem/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.stat span { font-size: .9rem; color: var(--muted); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .dot { transition: background-color .12s, border-color .12s; }
+}
+</style>
+
+<div class="app" lang="uk">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Практика відповідей</p>
+      <h1 class="pair">Як?</h1>
+    </div>
+    <p class="today">Сьогодні: <b id="todayCount">0</b></p>
+  </header>
+  <p class="lead">Скажи відповідь вголос і напиши її.</p>
+
+  <section class="progress" aria-label="Прогрес">
+    <p class="count">Завдання <b id="cur">1</b> з <span id="total">20</span></p>
+    <div class="dots" id="dots" aria-hidden="true"></div>
+  </section>
+
+  <main class="card">
+    <div id="task" class="task">
+      <span class="cat" id="cat"></span>
+      <div class="stage" id="stage" role="img"></div>
+      <p class="question" id="question"></p>
+      <div class="write">
+        <input type="text" id="answer" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Твоя відповідь">
+      </div>
+    </div>
+    <div id="summary" class="task sum" hidden></div>
+  </main>
+
+  <button type="button" class="btn" id="next">Далі</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ITEMS = [
+    { cat: "Транспорт", scene: ["🧑", "🚌", "🏫"], alt: "Хлопець, автобус і школа.", q: "хлопець їхав до школи" },
+    { cat: "Транспорт", scene: ["👩", "🚆", "🏙️"], alt: "Дівчина, потяг і велике місто.", q: "дівчина їхала в інше місто" },
+    { cat: "Транспорт", scene: ["🧑", "🚲", "🛣️"], alt: "Хлопець на велосипеді по дорозі.", q: "хлопець добрався додому" },
+    { cat: "Транспорт", scene: ["🧳", "✈️", "🌍"], alt: "Валіза, літак і земна куля.", q: "люди добралися в іншу країну" },
+    { cat: "Транспорт", scene: ["🌊", "🚢", "🏝️"], alt: "Море, корабель і острів.", q: "люди добралися на острів" },
+
+    { cat: "Як саме", scene: ["🏃", "💨"], alt: "Хлопець біжить, позаду вітер.", q: "біжить хлопець" },
+    { cat: "Як саме", scene: ["🐌", "🌿"], alt: "Равлик на траві.", q: "повзе равлик" },
+    { cat: "Як саме", scene: ["👩", "🎤", "🔊"], alt: "Дівчина з мікрофоном і гучний звук.", q: "співає дівчина" },
+    { cat: "Як саме", scene: ["👶", "😴", "🤫"], alt: "Малюк спить, усі мовчать.", q: "спить малюк" },
+    { cat: "Як саме", scene: ["🧑", "☕", "😬"], alt: "Хлопець несе повну гарячу чашку.", q: "хлопець несе гарячу чашку" },
+    { cat: "Як саме", scene: ["🤾", "⬆️", "🏀"], alt: "Хлопець стрибає до кошика.", q: "хлопець стрибає" },
+
+    { cat: "Самопочуття", scene: ["🤒", "🌡️", "🛏️"], alt: "Хворий хлопець у ліжку з градусником.", q: "почувається хлопець" },
+    { cat: "Самопочуття", scene: ["🥳", "🎉", "🎈"], alt: "Радісна дівчина зі святом і кульками.", q: "почувається дівчина" },
+    { cat: "Самопочуття", scene: ["🌧️", "😞"], alt: "Дощ і сумна дівчина.", q: "почувається дівчина" },
+
+    { cat: "Погода і одяг", scene: ["🌬️", "🥶", "🧊"], alt: "Холодний вітер, людина змерзла, лід.", q: "на вулиці" },
+    { cat: "Погода і одяг", scene: ["☀️", "🥵", "🌡️"], alt: "Яскраве сонце, людині жарко, термометр.", q: "на вулиці" },
+    { cat: "Погода і одяг", scene: ["🌨️", "❄️", "⛄"], alt: "Сніг іде, сніговик.", q: "на вулиці" },
+    { cat: "Погода і одяг", scene: ["🧑", "🧥", "🧣", "🧤"], alt: "Хлопець у куртці, шарфі й рукавичках.", q: "одягнений хлопець" },
+    { cat: "Як саме", scene: ["🤡", "🗣️", "😄"], alt: "Клоун розмовляє і сміється.", q: "розмовляє клоун" }
+  ];
+
+  /* light per-device convenience: today's counter */
+  var KEY = "how-trainer-v1";
+  var store = {};
+  try { store = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { store = {}; }
+  function saveStore() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+  function dayKey() {
+    var d = new Date();
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+  }
+  if (store.day !== dayKey()) { store.day = dayKey(); store.count = 0; }
+
+  function blank() { return ITEMS.map(function () { return false; }); }
+  var state = { i: 0, done: blank() };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var todayEl = $("todayCount"), curEl = $("cur"), totalEl = $("total"), dotsEl = $("dots"),
+      taskEl = $("task"), summaryEl = $("summary"), catEl = $("cat"), stage = $("stage"),
+      questionEl = $("question"), input = $("answer"), nextBtn = $("next");
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function drawDots() {
+    dotsEl.innerHTML = "";
+    ITEMS.forEach(function (_, k) {
+      var cls = "dot" + (state.done[k] ? " done" : "") + (k === state.i ? " now" : "");
+      dotsEl.appendChild(el("span", cls));
+    });
+  }
+
+  function showTask() {
+    taskEl.hidden = false;
+    summaryEl.hidden = true;
+    var it = ITEMS[state.i];
+
+    catEl.textContent = it.cat;
+    stage.innerHTML = "";
+    stage.setAttribute("aria-label", it.alt);
+    it.scene.forEach(function (e) {
+      var s = el("span", "em", e);
+      s.setAttribute("aria-hidden", "true");
+      stage.appendChild(s);
+    });
+    questionEl.innerHTML = "";
+    questionEl.appendChild(el("span", "why", "Як"));
+    questionEl.appendChild(document.createTextNode(" " + it.q + "?"));
+
+    input.value = "";
+    nextBtn.textContent = state.i === ITEMS.length - 1 ? "Завершити" : "Далі";
+  }
+
+  function showSummary() {
+    taskEl.hidden = true;
+    summaryEl.hidden = false;
+    var n = state.done.filter(Boolean).length;
+
+    summaryEl.innerHTML = "";
+    summaryEl.appendChild(el("h2", null, "Готово"));
+    var s = el("div", "stat");
+    s.appendChild(el("b", null, n + " з " + ITEMS.length));
+    s.appendChild(el("span", null, "відповідей написано"));
+    summaryEl.appendChild(s);
+    nextBtn.textContent = "Ще раз";
+  }
+
+  function render() {
+    totalEl.textContent = ITEMS.length;
+    curEl.textContent = Math.min(state.i + 1, ITEMS.length);
+    todayEl.textContent = store.count || 0;
+    drawDots();
+    if (state.i >= ITEMS.length) showSummary(); else showTask();
+  }
+
+  nextBtn.addEventListener("click", function () {
+    if (state.i >= ITEMS.length) {
+      state.i = 0;
+      state.done = blank();
+    } else {
+      /* the text itself is never checked; writing something counts as an answer */
+      if (input.value.trim()) {
+        state.done[state.i] = true;
+        store.count = (store.count || 0) + 1;
+        saveStore();
+      }
+      state.i++;
+    }
+    render();
+    try { window.scrollTo(0, 0); } catch (e) {}
+  });
+
+  render();
+})();
+</script>
+
+</body></html>
