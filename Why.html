@@ -112,13 +112,16 @@ button, input { font-family: inherit; }
 }
 .write .end { font-size: 1.25rem; font-weight: 700; color: var(--because); }
 
-/* the one button */
+/* navigation: Назад (quiet) and Далі (main) */
+.nav { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 14px; }
 .btn {
-  width: 100%; min-height: 56px; margin-top: 14px; padding: 0 20px;
+  min-height: 56px; padding: 0 20px;
   font-size: 1.1rem; font-weight: 700;
   background: var(--why); color: var(--on-why);
   border: 2px solid var(--why); border-radius: 12px; cursor: pointer;
 }
+.btn.back { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.btn:disabled { opacity: .45; cursor: default; }
 
 /* summary */
 .sum h2 { margin: 0; font: 700 1.4rem/1.2 var(--font-display); }
@@ -160,7 +163,10 @@ button, input { font-family: inherit; }
     <div id="summary" class="task sum" hidden></div>
   </main>
 
-  <button type="button" class="btn" id="next">Далі</button>
+  <div class="nav">
+    <button type="button" class="btn back" id="back">Назад</button>
+    <button type="button" class="btn" id="next">Далі</button>
+  </div>
 </div>
 
 <script>
@@ -206,12 +212,12 @@ button, input { font-family: inherit; }
   if (store.day !== dayKey()) { store.day = dayKey(); store.count = 0; }
 
   function blank() { return ITEMS.map(function () { return false; }); }
-  var state = { i: 0, done: blank() };
+  var state = { i: 0, done: blank(), typed: ITEMS.map(function () { return ""; }) };
 
   var $ = function (id) { return document.getElementById(id); };
   var todayEl = $("todayCount"), curEl = $("cur"), totalEl = $("total"), dotsEl = $("dots"),
       taskEl = $("task"), summaryEl = $("summary"), catEl = $("cat"), stage = $("stage"),
-      questionEl = $("question"), input = $("answer"), nextBtn = $("next");
+      questionEl = $("question"), input = $("answer"), nextBtn = $("next"), backBtn = $("back");
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -245,8 +251,9 @@ button, input { font-family: inherit; }
     questionEl.appendChild(el("span", "why", "Чому"));
     questionEl.appendChild(document.createTextNode(" " + it.q + "?"));
 
-    input.value = "";
+    input.value = state.typed[state.i] || "";
     nextBtn.textContent = state.i === ITEMS.length - 1 ? "Завершити" : "Далі";
+    backBtn.disabled = state.i === 0;
   }
 
   function showSummary() {
@@ -261,6 +268,7 @@ button, input { font-family: inherit; }
     s.appendChild(el("span", null, "відповідей написано"));
     summaryEl.appendChild(s);
     nextBtn.textContent = "Ще раз";
+    backBtn.disabled = false;
   }
 
   function render() {
@@ -275,15 +283,27 @@ button, input { font-family: inherit; }
     if (state.i >= ITEMS.length) {
       state.i = 0;
       state.done = blank();
+      state.typed = ITEMS.map(function () { return ""; });
     } else {
       /* the text itself is never checked; writing something counts as an answer */
+      state.typed[state.i] = input.value;
       if (input.value.trim()) {
+        if (!state.done[state.i]) {
+          store.count = (store.count || 0) + 1;
+          saveStore();
+        }
         state.done[state.i] = true;
-        store.count = (store.count || 0) + 1;
-        saveStore();
       }
       state.i++;
     }
+    render();
+    try { window.scrollTo(0, 0); } catch (e) {}
+  });
+
+  backBtn.addEventListener("click", function () {
+    if (state.i === 0) return;
+    if (state.i < ITEMS.length) state.typed[state.i] = input.value;
+    state.i--;
     render();
     try { window.scrollTo(0, 0); } catch (e) {}
   });
