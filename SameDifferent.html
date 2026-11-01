@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Порівняння: 10 питань</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f3f5f9;
+    color: #1f2937;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    width: 100%;
+    max-width: 720px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  }
+  .progress { font-size: 14px; color: #6b7280; margin-bottom: 8px; }
+  .bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-bottom: 20px; }
+  .bar span { display: block; height: 100%; width: 0; background: #4f46e5; transition: width .25s; }
+
+  .images { display: flex; gap: 16px; margin-bottom: 24px; }
+  .image-box {
+    flex: 1;
+    aspect-ratio: 1 / 1;
+    max-height: 220px;
+    background: #eef2ff;
+    border-radius: 12px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .image-box .emoji { font-size: 72px; line-height: 1; }
+  .image-box .label { margin-top: 8px; font-weight: 600; }
+  .image-box img { width: 100%; height: 100%; object-fit: cover; }
+
+  .question { margin-bottom: 20px; }
+  .question label { display: block; font-weight: 600; margin-bottom: 8px; }
+  .question input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+  }
+  .question input:focus { outline: 2px solid #c7d2fe; border-color: #4f46e5; }
+
+  .nav { display: flex; justify-content: space-between; margin-top: 8px; }
+  button {
+    padding: 10px 24px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #4f46e5;
+    color: #fff;
+  }
+  button:hover { background: #4338ca; }
+  button:disabled { background: #c7c9d1; cursor: not-allowed; }
+  button.secondary { background: #e5e7eb; color: #1f2937; }
+  button.secondary:hover { background: #d1d5db; }
+  button.secondary:disabled { background: #f0f1f4; color: #a0a4ad; }
+
+  .result { display: none; }
+  .result h2 { margin-top: 0; }
+  .result .item { border-top: 1px solid #e5e7eb; padding: 12px 0; }
+  .result .item h3 { margin: 0 0 6px; font-size: 16px; }
+  .result .item p { margin: 4px 0; font-size: 15px; }
+  .result .empty { color: #9ca3af; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="quiz">
+    <div class="progress" id="progress"></div>
+    <div class="bar"><span id="bar"></span></div>
+
+    <div class="images">
+      <div class="image-box" id="img1"></div>
+      <div class="image-box" id="img2"></div>
+    </div>
+
+    <div class="question">
+      <label id="q1label" for="a1"></label>
+      <input type="text" id="a1" placeholder="Ваша відповідь...">
+    </div>
+    <div class="question">
+      <label id="q2label" for="a2"></label>
+      <input type="text" id="a2" placeholder="Ваша відповідь...">
+    </div>
+
+    <div class="nav">
+      <button class="secondary" id="backBtn">← Назад</button>
+      <button id="nextBtn">Далі →</button>
+    </div>
+  </div>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+  // Щоб замінити емодзі на справжні картинки, додайте поле img1 / img2 з адресою,
+  // наприклад: img1: "cat.jpg", img2: "dog.jpg"
+  const items = [
+  // aIns / bIns — орудний відмінок (між ким? чим?), bGen — родовий (від кого? чого?)
+    { a: "Кіт",        b: "Собака",    aIns: "котом",      bIns: "собакою",    bGen: "собаки",    e1: "🐱", e2: "🐶" },
+    { a: "Яблуко",     b: "Груша",     aIns: "яблуком",    bIns: "грушею",     bGen: "груші",     e1: "🍎", e2: "🍐" },
+    { a: "Сонце",      b: "Місяць",    aIns: "сонцем",     bIns: "місяцем",    bGen: "місяця",    e1: "☀️", e2: "🌙" },
+    { a: "Автомобіль", b: "Велосипед", aIns: "автомобілем",bIns: "велосипедом",bGen: "велосипеда",e1: "🚗", e2: "🚲" },
+    { a: "Літак",      b: "Птах",      aIns: "літаком",    bIns: "птахом",     bGen: "птаха",     e1: "✈️", e2: "🐦" },
+    { a: "Дерево",     b: "Квітка",    aIns: "деревом",    bIns: "квіткою",    bGen: "квітки",    e1: "🌳", e2: "🌸" },
+    { a: "Книга",      b: "Планшет",   aIns: "книгою",     bIns: "планшетом",  bGen: "планшета",  e1: "📖", e2: "📱" },
+    { a: "Молоко",     b: "Вода",      aIns: "молоком",    bIns: "водою",      bGen: "води",      e1: "🥛", e2: "💧" },
+    { a: "Поїзд",      b: "Автобус",   aIns: "поїздом",    bIns: "автобусом",  bGen: "автобуса",  e1: "🚆", e2: "🚌" }
+  ];
+
+  const answers = items.map(() => ({ common: "", diff: "" }));
+  let current = 0;
+
+  const $ = id => document.getElementById(id);
+
+  function renderImage(box, img, emoji, label) {
+    box.innerHTML = img
+      ? `<img src="${img}" alt="${label}">`
+      : `<div class="emoji">${emoji}</div><div class="label">${label}</div>`;
+  }
+
+  function show() {
+    const it = items[current];
+    $("progress").textContent = `Питання ${current + 1} з ${items.length}`;
+    $("bar").style.width = ((current + 1) / items.length * 100) + "%";
+
+    renderImage($("img1"), it.img1, it.e1, it.a);
+    renderImage($("img2"), it.img2, it.e2, it.b);
+
+    $("q1label").textContent = `1) Що спільного між ${it.aIns} і ${it.bIns}?`;
+    $("q2label").textContent = `2) Чим відрізняється ${it.a.toLowerCase()} від ${it.bGen}?`;
+
+    $("a1").value = answers[current].common;
+    $("a2").value = answers[current].diff;
+
+    $("backBtn").disabled = current === 0;
+    $("nextBtn").textContent = current === items.length - 1 ? "Завершити ✓" : "Далі →";
+  }
+
+  function save() {
+    answers[current].common = $("a1").value;
+    answers[current].diff = $("a2").value;
+  }
+
+  function esc(s) {
+    return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function showResult() {
+    const html = items.map((it, i) => {
+      const c = answers[i].common.trim();
+      const d = answers[i].diff.trim();
+      return `<div class="item">
+        <h3>${i + 1}. ${it.e1} ${it.a} і ${it.e2} ${it.b}</h3>
+        <p><b>Спільне:</b> ${c ? esc(c) : '<span class="empty">без відповіді</span>'}</p>
+        <p><b>Відмінності:</b> ${d ? esc(d) : '<span class="empty">без відповіді</span>'}</p>
+      </div>`;
+    }).join("");
+    $("result").innerHTML = `<h2>Ваші відповіді</h2>${html}
+      <div class="nav"><button class="secondary" id="editBtn">← Повернутися</button></div>`;
+    $("quiz").style.display = "none";
+    $("result").style.display = "block";
+    $("editBtn").onclick = () => {
+      $("result").style.display = "none";
+      $("quiz").style.display = "block";
+      show();
+    };
+  }
+
+  $("backBtn").onclick = () => {
+    save();
+    if (current > 0) { current--; show(); }
+  };
+
+  $("nextBtn").onclick = () => {
+    save();
+    if (current < items.length - 1) { current++; show(); }
+    else showResult();
+  };
+
+  show();
+</script>
+</body>
+</html>
