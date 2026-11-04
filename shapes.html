@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Форма предметів</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f3f5f9;
+    color: #1f2937;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    width: 100%;
+    max-width: 720px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  }
+  .progress { font-size: 14px; color: #6b7280; margin-bottom: 8px; }
+  .bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-bottom: 20px; }
+  .bar span { display: block; height: 100%; width: 0; background: #d97706; transition: width .25s; }
+
+  .images { display: flex; gap: 16px; margin-bottom: 24px; }
+  .image-box {
+    flex: 1;
+    aspect-ratio: 1 / 1;
+    max-height: 220px;
+    border-radius: 12px;
+    background: #fdf6ec;
+    display: flex;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+    padding: 8px;
+  }
+  .image-box .emoji { font-size: 88px; line-height: 1; }
+  .image-box svg { width: 70%; max-width: 150px; height: auto; }
+  .image-box img { width: 100%; height: 100%; object-fit: cover; }
+
+  .question { margin-bottom: 20px; }
+  .question label { display: block; font-weight: 400; font-size: 17px; margin-bottom: 8px; }
+  .question label b { font-weight: 700; }
+  .question input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+  }
+  .question input:focus { outline: 2px solid #fde68a; border-color: #d97706; }
+
+  .nav { display: flex; justify-content: space-between; margin-top: 8px; gap: 8px; }
+  button {
+    padding: 10px 24px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #d97706;
+    color: #fff;
+  }
+  button:hover { background: #b45309; }
+  button:disabled { background: #c7c9d1; cursor: not-allowed; }
+  button.secondary { background: #e5e7eb; color: #1f2937; }
+  button.secondary:hover { background: #d1d5db; }
+  button.secondary:disabled { background: #f0f1f4; color: #a0a4ad; }
+
+  .result { display: none; }
+  .result h2 { margin-top: 0; }
+  .result .item { border-top: 1px solid #e5e7eb; padding: 12px 0; }
+  .result .item h3 { margin: 0 0 6px; font-size: 16px; }
+  .result .item p { margin: 4px 0; font-size: 15px; }
+  .result .empty { color: #9ca3af; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="quiz">
+    <div class="progress" id="progress"></div>
+    <div class="bar"><span id="bar"></span></div>
+
+    <div class="images">
+      <div class="image-box" id="img1"></div>
+      <div class="image-box" id="img2"></div>
+    </div>
+
+    <div class="question">
+      <label id="qlabel" for="answer"></label>
+      <input type="text" id="answer" placeholder="Ваша відповідь...">
+    </div>
+
+    <div class="nav">
+      <button class="secondary" id="backBtn">← Назад</button>
+      <button id="nextBtn">Далі →</button>
+    </div>
+  </div>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+  const QUESTION_COUNT = 10;
+
+  // ---------- Малюнки для предметів, яких немає серед емодзі ----------
+  const SVG_WHEEL = (() => {
+    let spokes = "";
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      spokes += `<line x1="50" y1="50" x2="${(50 + 26 * Math.cos(a)).toFixed(1)}" y2="${(50 + 26 * Math.sin(a)).toFixed(1)}" stroke="#6b7280" stroke-width="4" stroke-linecap="round"/>`;
+    }
+    return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="50" cy="50" r="47" fill="#1f2937"/>
+      <circle cx="50" cy="50" r="47" fill="none" stroke="#374151" stroke-width="3" stroke-dasharray="4 5"/>
+      <circle cx="50" cy="50" r="32" fill="#9ca3af"/>
+      <circle cx="50" cy="50" r="27" fill="#e5e7eb"/>
+      ${spokes}
+      <circle cx="50" cy="50" r="8" fill="#4b5563"/>
+      <circle cx="50" cy="50" r="3" fill="#d1d5db"/>
+    </svg>`;
+  })();
+
+  const SVG_SQUARE_COOKIE = (() => {
+    let holes = "";
+    for (const x of [30, 50, 70]) for (const y of [30, 50, 70])
+      holes += `<circle cx="${x}" cy="${y}" r="3.2" fill="#b45309"/>`;
+    return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="8" y="8" width="84" height="84" rx="6" fill="#c2701a"/>
+      <rect x="13" y="13" width="74" height="74" rx="4" fill="#f0a640"/>
+      <rect x="13" y="13" width="74" height="74" rx="4" fill="none" stroke="#d9862a" stroke-width="2" stroke-dasharray="3 3"/>
+      ${holes}
+    </svg>`;
+  })();
+
+  const SVG_CHESSBOARD = (() => {
+    let cells = "";
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++)
+      cells += `<rect x="${10 + c * 10}" y="${10 + r * 10}" width="10" height="10" fill="${(r + c) % 2 ? "#7c4a21" : "#f5deb3"}"/>`;
+    return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="4" y="4" width="92" height="92" rx="3" fill="#5b3415"/>
+      ${cells}
+    </svg>`;
+  })();
+
+  const SVG_ROAD_SIGN = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <polygon points="50,8 94,88 6,88" fill="#dc2626" stroke="#dc2626" stroke-width="8" stroke-linejoin="round"/>
+      <polygon points="50,27 79,80 21,80" fill="#ffffff"/>
+      <rect x="46.5" y="42" width="7" height="22" rx="3.5" fill="#111827"/>
+      <circle cx="50" cy="71.5" r="4" fill="#111827"/>
+    </svg>`;
+
+  const SVG_CHEESE_SLICE = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <polygon points="12,78 88,78 88,85 12,85" fill="#e9a21a" stroke="#e9a21a" stroke-width="4" stroke-linejoin="round"/>
+      <polygon points="12,78 88,78 50,14" fill="#fcd34d" stroke="#fcd34d" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="52" cy="38" r="3.5" fill="#eab308"/>
+      <circle cx="44" cy="55" r="5"   fill="#eab308"/>
+      <circle cx="61" cy="65" r="4"   fill="#eab308"/>
+      <circle cx="37" cy="70" r="3"   fill="#eab308"/>
+      <circle cx="72" cy="74" r="2.5" fill="#eab308"/>
+    </svg>`;
+
+  // ---------- Предмети ----------
+  // shape — форма (дві картинки в питанні завжди різної форми)
+  // name — називний відмінок (хто? що?), gen — родовий (від кого? чого?)
+  // Щоб показати справжню картинку, додайте поле img: "wheel.jpg"
+  const shapes = {
+    round:     "Круглі",
+    square:    "Квадратні",
+    triangle:  "Трикутні",
+    rectangle: "Прямокутні",
+    oval:      "Овальні"
+  };
+
+  const things = [
+    { shape: "round",     name: "Колесо",          gen: "колеса",           svg: SVG_WHEEL },
+    { shape: "round",     name: "М’яч",            gen: "м’яча",            emoji: "⚽" },
+    { shape: "round",     name: "Апельсин",        gen: "апельсина",        emoji: "🍊" },
+    { shape: "round",     name: "Пончик",          gen: "пончика",          emoji: "🍩" },
+    { shape: "round",     name: "Печиво",          gen: "печива",           emoji: "🍪" },
+    { shape: "round",     name: "Годинник",        gen: "годинника",        emoji: "🕐" },
+
+    { shape: "square",    name: "Печиво",          gen: "печива",           svg: SVG_SQUARE_COOKIE },
+    { shape: "square",    name: "Шахова дошка",    gen: "шахової дошки",    svg: SVG_CHESSBOARD },
+    { shape: "square",    name: "Гральний кубик",  gen: "грального кубика", emoji: "🎲" },
+    { shape: "square",    name: "Вафля",           gen: "вафлі",            emoji: "🧇" },
+    { shape: "square",    name: "Кубик льоду",     gen: "кубика льоду",     emoji: "🧊" },
+
+    { shape: "triangle",  name: "Шматок піци",     gen: "шматка піци",      emoji: "🍕" },
+    { shape: "triangle",  name: "Шматочок сиру",   gen: "шматочка сиру",    svg: SVG_CHEESE_SLICE },
+    { shape: "triangle",  name: "Ялинка",          gen: "ялинки",           emoji: "🎄" },
+    { shape: "triangle",  name: "Дорожній знак",   gen: "дорожнього знака", svg: SVG_ROAD_SIGN },
+
+    { shape: "rectangle", name: "Телефон",         gen: "телефону",         emoji: "📱" },
+    { shape: "rectangle", name: "Шоколадка",       gen: "шоколадки",        emoji: "🍫" },
+    { shape: "rectangle", name: "Конверт",         gen: "конверта",         emoji: "✉️" },
+    { shape: "rectangle", name: "Книжка",          gen: "книжки",           emoji: "📕" },
+
+    { shape: "oval",      name: "Яйце",            gen: "яйця",             emoji: "🥚" },
+    { shape: "oval",      name: "М’яч для регбі",  gen: "м’яча для регбі",  emoji: "🏉" }
+  ];
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  const pairKey = (x, y) => [x.name, y.name].sort().join("|");
+  // Предмети з однаковою назвою (кругле й квадратне печиво) в одну пару не потрапляють,
+  // щоб не вийшло «Чим відрізняється печиво від печива?»
+  const canPair = (x, y) => x.shape !== y.shape && x.name !== y.name;
+
+  // Створює випадкові пари предметів різної форми.
+  // Спершу беруться предмети, які ще не траплялися, тому жоден не повторюється частіше за інші.
+  function makeQuestions(count) {
+    let best = null;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const used = new Map(things.map(t => [t, 0]));
+      const pairs = new Set();
+      const result = [];
+      const byUsage = list => shuffle(list.slice()).sort((x, y) => used.get(x) - used.get(y));
+
+      while (result.length < count) {
+        const t1 = byUsage(things)[0];
+        const t2 = byUsage(things.filter(t => canPair(t1, t)))
+          .find(t => !pairs.has(pairKey(t1, t)));
+        if (!t2) break;
+        used.set(t1, used.get(t1) + 1);
+        used.set(t2, used.get(t2) + 1);
+        pairs.add(pairKey(t1, t2));
+        result.push(Math.random() < 0.5 ? { a: t1, b: t2 } : { a: t2, b: t1 });
+      }
+
+      const maxUse = Math.max(...used.values());
+      if (result.length === count && (!best || maxUse < best.maxUse)) best = { result, maxUse };
+      if (best && best.maxUse <= Math.ceil(count * 2 / things.length)) break;
+    }
+    return best.result;
+  }
+
+  const items = makeQuestions(QUESTION_COUNT);
+  const answers = items.map(() => "");
+  let current = 0;
+
+  const $ = id => document.getElementById(id);
+
+  function renderImage(box, t) {
+    if (t.img) box.innerHTML = `<img src="${t.img}" alt="">`;
+    else if (t.svg) box.innerHTML = t.svg;
+    else box.innerHTML = `<div class="emoji" aria-hidden="true">${t.emoji}</div>`;
+  }
+
+  function show() {
+    const it = items[current];
+    $("progress").textContent = `Питання ${current + 1} з ${items.length}`;
+    $("bar").style.width = ((current + 1) / items.length * 100) + "%";
+
+    renderImage($("img1"), it.a);
+    renderImage($("img2"), it.b);
+
+    $("qlabel").innerHTML = `Чим <b>відрізняється</b> ${it.a.name.toLowerCase()} від ${it.b.gen}?`;
+    $("answer").value = answers[current];
+
+    $("backBtn").disabled = current === 0;
+    $("nextBtn").textContent = current === items.length - 1 ? "Завершити ✓" : "Далі →";
+  }
+
+  function save() { answers[current] = $("answer").value; }
+
+  function esc(s) {
+    return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function showResult() {
+    const html = items.map((it, i) => {
+      const a = answers[i].trim();
+      return `<div class="item">
+        <h3>${i + 1}. ${it.a.name} і ${it.b.name.toLowerCase()}</h3>
+        <p><b>Відмінності:</b> ${a ? esc(a) : '<span class="empty">без відповіді</span>'}</p>
+      </div>`;
+    }).join("");
+    $("result").innerHTML = `<h2>Ваші відповіді</h2>${html}
+      <div class="nav">
+        <button class="secondary" id="editBtn">← Повернутися</button>
+        <button id="newBtn">Нові питання ↻</button>
+      </div>`;
+    $("quiz").style.display = "none";
+    $("result").style.display = "block";
+    $("editBtn").onclick = () => {
+      $("result").style.display = "none";
+      $("quiz").style.display = "block";
+      show();
+    };
+    $("newBtn").onclick = () => location.reload();
+  }
+
+  $("backBtn").onclick = () => {
+    save();
+    if (current > 0) { current--; show(); }
+  };
+
+  $("nextBtn").onclick = () => {
+    save();
+    if (current < items.length - 1) { current++; show(); }
+    else showResult();
+  };
+
+  $("answer").addEventListener("keydown", e => {
+    if (e.key === "Enter") $("nextBtn").click();
+  });
+
+  show();
+</script>
+</body>
+</html>
