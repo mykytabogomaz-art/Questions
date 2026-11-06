@@ -96,7 +96,7 @@ button, input { font-family: inherit; }
   display: flex; justify-content: center; align-items: center;
   padding: 6px; background: var(--stage); border-radius: 14px;
 }
-.photo { display: block; max-width: 100%; max-height: max(150px, calc(80vh - 250px)); max-height: max(150px, calc(80dvh - 250px)); width: auto; height: auto; border-radius: 10px; }
+.photo { display: block; max-width: 100%; max-height: max(120px, calc((80vh - 250px) * 0.8)); max-height: max(120px, calc((80dvh - 250px) * 0.8)); width: auto; height: auto; border-radius: 10px; }
 .cat:empty { display: none; }
 .em { font-family: var(--font-emoji); font-size: clamp(2.8rem, 14vw, 4.6rem); line-height: 1; }
 .question { margin: 0; font-size: clamp(1.3rem, 5.6vw, 1.65rem); font-weight: 600; line-height: 1.35; text-wrap: balance; }
@@ -138,12 +138,10 @@ button, input { font-family: inherit; }
 <div class="app" lang="uk">
   <header class="top">
     <div>
-      <p class="eyebrow">Практика відповідей</p>
       <h1 class="pair"><span class="q">Чому?</span> <span class="a">Тому що…</span></h1>
     </div>
     <p class="today">Сьогодні: <b id="todayCount">0</b></p>
   </header>
-  <p class="lead">Скажи відповідь вголос і напиши її.</p>
 
   <section class="progress" aria-label="Прогрес">
     <p class="count">Завдання <b id="cur">1</b> з <span id="total">20</span></p>
