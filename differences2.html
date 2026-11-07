@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Знайди відмінності</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f3f5f9;
+    color: #1f2937;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    width: 100%;
+    max-width: 720px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  }
+  .progress { font-size: 14px; color: #6b7280; margin-bottom: 8px; }
+  .bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-bottom: 20px; }
+  .bar span { display: block; height: 100%; width: 0; background: #0d9488; transition: width .25s; }
+
+  .images { display: flex; gap: 16px; margin-bottom: 24px; }
+  .image-box {
+    flex: 1;
+    aspect-ratio: 1 / 1;
+    max-height: 220px;
+    border-radius: 12px;
+    background: #f4f5f7;
+    display: flex;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+    padding: 8px;
+  }
+  .image-box .emoji { font-size: 88px; line-height: 1; }
+  .image-box svg { width: 72%; max-width: 155px; height: auto; }
+  .image-box img { width: 100%; height: 100%; object-fit: cover; }
+
+  .question { margin-bottom: 20px; }
+  .question label { display: block; font-weight: 400; font-size: 17px; margin-bottom: 8px; }
+  .question label b { font-weight: 700; }
+  .question input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+  }
+  .question input:focus { outline: 2px solid #99f6e4; border-color: #0d9488; }
+
+  .nav { display: flex; justify-content: space-between; margin-top: 8px; gap: 8px; }
+  button {
+    padding: 10px 24px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #0d9488;
+    color: #fff;
+  }
+  button:hover { background: #0f766e; }
+  button:disabled { background: #c7c9d1; cursor: not-allowed; }
+  button.secondary { background: #e5e7eb; color: #1f2937; }
+  button.secondary:hover { background: #d1d5db; }
+  button.secondary:disabled { background: #f0f1f4; color: #a0a4ad; }
+
+  .result { display: none; }
+  .result h2 { margin-top: 0; }
+  .result .item { border-top: 1px solid #e5e7eb; padding: 12px 0; }
+  .result .item h3 { margin: 0 0 6px; font-size: 16px; font-weight: 400; }
+  .result .item h3 b { font-weight: 700; }
+  .result .item p { margin: 4px 0; font-size: 15px; }
+  .result .empty { color: #9ca3af; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="quiz">
+    <div class="progress" id="progress"></div>
+    <div class="bar"><span id="bar"></span></div>
+
+    <div class="images">
+      <div class="image-box" id="img1"></div>
+      <div class="image-box" id="img2"></div>
+    </div>
+
+    <div class="question">
+      <label id="qlabel" for="answer"></label>
+      <input type="text" id="answer" placeholder="Ваша відповідь...">
+    </div>
+
+    <div class="nav">
+      <button class="secondary" id="backBtn">← Назад</button>
+      <button id="nextBtn">Далі →</button>
+    </div>
+  </div>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+  const QUESTION_COUNT = 10;
+
+  /* =====================================================================
+     1. КОЛІР — однаковий предмет, але різного кольору
+     ===================================================================== */
+  const COLORS = {
+    red:    { main: "#ef4444", dark: "#b91c1c" },
+    blue:   { main: "#3b82f6", dark: "#1d4ed8" },
+    green:  { main: "#22c55e", dark: "#15803d" },
+    yellow: { main: "#facc15", dark: "#ca8a04" },
+    purple: { main: "#a855f7", dark: "#7e22ce" },
+    orange: { main: "#f97316", dark: "#c2410c" }
+  };
+
+  const svgWrap = (body, vb = "0 0 100 100") =>
+    `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${body}</svg>`;
+
+  const DRAW = {
+    apple: c => svgWrap(`
+      <path d="M50 30C36 18 12 25 14 50c2 24 20 42 36 36 16 6 34-12 36-36 2-25-22-32-36-20z" fill="${c.main}"/>
+      <path d="M50 30c0-8 2-15 6-20" stroke="#78350f" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M55 20c6-10 18-10 22-6-4 8-14 10-22 6z" fill="#16a34a"/>
+      <ellipse cx="31" cy="47" rx="5" ry="10" fill="#fff" opacity=".35"/>`),
+
+    balloon: c => svgWrap(`
+      <ellipse cx="50" cy="40" rx="28" ry="33" fill="${c.main}"/>
+      <ellipse cx="39" cy="28" rx="5" ry="9" fill="#fff" opacity=".4"/>
+      <polygon points="45,74 55,74 50,80" fill="${c.dark}"/>
+      <path d="M50 80c-7 6 7 11 0 18" stroke="#6b7280" stroke-width="1.8" fill="none"/>`),
+
+    tshirt: c => svgWrap(`
+      <path d="M34 14L20 20 6 38l14 10 6-8v50h48V40l6 8 14-10-14-18-14-6c-4 8-28 8-32 0z"
+            fill="${c.main}" stroke="${c.dark}" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M34 14c4 10 28 10 32 0" stroke="${c.dark}" stroke-width="3" fill="none"/>`),
+
+    pencil: c => svgWrap(`
+      <g transform="rotate(-40 50 50)">
+        <rect x="8" y="42" width="10" height="16" rx="2" fill="#f9a8d4"/>
+        <rect x="18" y="42" width="7" height="16" fill="#9ca3af"/>
+        <rect x="25" y="42" width="46" height="16" fill="${c.main}"/>
+        <rect x="25" y="48" width="46" height="4" fill="${c.dark}" opacity=".45"/>
+        <polygon points="71,42 88,50 71,58" fill="#f5d0a9"/>
+        <polygon points="82,47.2 88,50 82,52.8" fill="${c.dark}"/>
+      </g>`),
+
+    cup: c => svgWrap(`
+      <path d="M76 42c18 0 18 28-4 28" stroke="${c.main}" stroke-width="7" fill="none"/>
+      <path d="M22 30h56l-6 54c-1 4-4 6-8 6H36c-4 0-7-2-8-6z" fill="${c.main}"/>
+      <ellipse cx="50" cy="30" rx="28" ry="5" fill="${c.dark}"/>`),
+
+    flower: c => {
+      let petals = "";
+      for (let k = 0; k < 6; k++) {
+        const a = k * Math.PI / 3;
+        petals += `<circle cx="${(50 + 16 * Math.cos(a)).toFixed(1)}" cy="${(36 + 16 * Math.sin(a)).toFixed(1)}" r="12" fill="${c.main}"/>`;
+      }
+      return svgWrap(`
+        <path d="M50 50v46" stroke="#16a34a" stroke-width="4"/>
+        <path d="M50 80c-4-10-16-12-22-8 4 8 14 12 22 8z" fill="#16a34a"/>
+        ${petals}
+        <circle cx="50" cy="36" r="10" fill="#92400e"/>`);
+    }
+  };
+
+  // gender: m — чоловічий (лівий / правого), f — жіночий (ліва / правої), n — середній (ліве / правого)
+  const colorThings = [
+    { draw: "apple",   name: "яблуко",           gender: "n", colors: ["red", "green", "yellow"] },
+    { draw: "balloon", name: "повітряна кулька", gender: "f", colors: ["red", "blue", "green", "yellow", "purple", "orange"] },
+    { draw: "tshirt",  name: "футболка",         gender: "f", colors: ["red", "blue", "green", "yellow", "purple", "orange"] },
+    { draw: "pencil",  name: "олівець",          gender: "m", colors: ["red", "blue", "green", "yellow", "purple", "orange"] },
+    { draw: "cup",     name: "чашка",            gender: "f", colors: ["red", "blue", "green", "yellow", "purple", "orange"] },
+    { draw: "flower",  name: "квітка",           gender: "f", colors: ["red", "blue", "yellow", "purple", "orange"] }
+  ];
+
+  const LEFT  = { m: "лівий",   f: "ліва",   n: "ліве" };
+  const RIGHT = { m: "правого", f: "правої", n: "правого" };
+
+  /* =====================================================================
+     2. ФОРМА — предмети різної форми
+     ===================================================================== */
+  const SVG_WHEEL = (() => {
+    let spokes = "";
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      spokes += `<line x1="50" y1="50" x2="${(50 + 26 * Math.cos(a)).toFixed(1)}" y2="${(50 + 26 * Math.sin(a)).toFixed(1)}" stroke="#6b7280" stroke-width="4" stroke-linecap="round"/>`;
+    }
+    return svgWrap(`
+      <circle cx="50" cy="50" r="47" fill="#1f2937"/>
+      <circle cx="50" cy="50" r="47" fill="none" stroke="#374151" stroke-width="3" stroke-dasharray="4 5"/>
+      <circle cx="50" cy="50" r="32" fill="#9ca3af"/>
+      <circle cx="50" cy="50" r="27" fill="#e5e7eb"/>
+      ${spokes}
+      <circle cx="50" cy="50" r="8" fill="#4b5563"/>
+      <circle cx="50" cy="50" r="3" fill="#d1d5db"/>`);
+  })();
+
+  const SVG_SQUARE_COOKIE = (() => {
+    let holes = "";
+    for (const x of [30, 50, 70]) for (const y of [30, 50, 70])
+      holes += `<circle cx="${x}" cy="${y}" r="3.2" fill="#b45309"/>`;
+    return svgWrap(`
+      <rect x="8" y="8" width="84" height="84" rx="6" fill="#c2701a"/>
+      <rect x="13" y="13" width="74" height="74" rx="4" fill="#f0a640"/>
+      <rect x="13" y="13" width="74" height="74" rx="4" fill="none" stroke="#d9862a" stroke-width="2" stroke-dasharray="3 3"/>
+      ${holes}`);
+  })();
+
+  const SVG_CHESSBOARD = (() => {
+    let cells = "";
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++)
+      cells += `<rect x="${10 + c * 10}" y="${10 + r * 10}" width="10" height="10" fill="${(r + c) % 2 ? "#7c4a21" : "#f5deb3"}"/>`;
+    return svgWrap(`<rect x="4" y="4" width="92" height="92" rx="3" fill="#5b3415"/>${cells}`);
+  })();
+
+  const SVG_ROAD_SIGN = svgWrap(`
+    <polygon points="50,8 94,88 6,88" fill="#dc2626" stroke="#dc2626" stroke-width="8" stroke-linejoin="round"/>
+    <polygon points="50,27 79,80 21,80" fill="#ffffff"/>
+    <rect x="46.5" y="42" width="7" height="22" rx="3.5" fill="#111827"/>
+    <circle cx="50" cy="71.5" r="4" fill="#111827"/>`);
+
+  const SVG_CHEESE_SLICE = svgWrap(`
+    <polygon points="12,78 88,78 88,85 12,85" fill="#e9a21a" stroke="#e9a21a" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="12,78 88,78 50,14" fill="#fcd34d" stroke="#fcd34d" stroke-width="4" stroke-linejoin="round"/>
+    <circle cx="52" cy="38" r="3.5" fill="#eab308"/>
+    <circle cx="44" cy="55" r="5"   fill="#eab308"/>
+    <circle cx="61" cy="65" r="4"   fill="#eab308"/>
+    <circle cx="37" cy="70" r="3"   fill="#eab308"/>
+    <circle cx="72" cy="74" r="2.5" fill="#eab308"/>`);
+
+  // name — називний відмінок (хто? що?), gen — родовий (від кого? чого?)
+  const shapeThings = [
+    { group: "round",     name: "Колесо",         gen: "колеса",           svg: SVG_WHEEL },
+    { group: "round",     name: "М’яч",           gen: "м’яча",            emoji: "⚽" },
+    { group: "round",     name: "Апельсин",       gen: "апельсина",        emoji: "🍊" },
+    { group: "round",     name: "Пончик",         gen: "пончика",          emoji: "🍩" },
+    { group: "round",     name: "Печиво",         gen: "печива",           emoji: "🍪" },
+    { group: "round",     name: "Годинник",       gen: "годинника",        emoji: "🕐" },
+
+    { group: "square",    name: "Печиво",         gen: "печива",           svg: SVG_SQUARE_COOKIE },
+    { group: "square",    name: "Шахова дошка",   gen: "шахової дошки",    svg: SVG_CHESSBOARD },
+    { group: "square",    name: "Гральний кубик", gen: "грального кубика", emoji: "🎲" },
+    { group: "square",    name: "Вафля",          gen: "вафлі",            emoji: "🧇" },
+    { group: "square",    name: "Кубик льоду",    gen: "кубика льоду",     emoji: "🧊" },
+
+    { group: "triangle",  name: "Шматок піци",    gen: "шматка піци",      emoji: "🍕" },
+    { group: "triangle",  name: "Шматочок сиру",  gen: "шматочка сиру",    svg: SVG_CHEESE_SLICE },
+    { group: "triangle",  name: "Ялинка",         gen: "ялинки",           emoji: "🎄" },
+    { group: "triangle",  name: "Дорожній знак",  gen: "дорожнього знака", svg: SVG_ROAD_SIGN },
+
+    { group: "rectangle", name: "Телефон",        gen: "телефону",         emoji: "📱" },
+    { group: "rectangle", name: "Шоколадка",      gen: "шоколадки",        emoji: "🍫" },
+    { group: "rectangle", name: "Конверт",        gen: "конверта",         emoji: "✉️" },
+    { group: "rectangle", name: "Книжка",         gen: "книжки",           emoji: "📕" },
+
+    { group: "oval",      name: "Яйце",           gen: "яйця",             emoji: "🥚" },
+    { group: "oval",      name: "М’яч для регбі", gen: "м’яча для регбі",  emoji: "🏉" }
+  ];
+
+  /* =====================================================================
+     3. ТРАНСПОРТ — наземний, водний і повітряний (дві різні категорії)
+     ===================================================================== */
+  const SVG_AIRSHIP = svgWrap(`
+    <path d="M30 30L10 8h14l20 18z" fill="#475569"/>
+    <path d="M30 50L10 72h14l20-18z" fill="#475569"/>
+    <path d="M26 37L4 34v12l22-3z" fill="#475569"/>
+    <ellipse cx="72" cy="40" rx="58" ry="22" fill="#94a3b8"/>
+    <ellipse cx="80" cy="31" rx="40" ry="7" fill="#cbd5e1"/>
+    <path d="M64 60v6M84 60v6" stroke="#334155" stroke-width="2"/>
+    <rect x="58" y="65" width="32" height="11" rx="5" fill="#334155"/>
+    <rect x="63" y="68" width="5" height="4" rx="1" fill="#e0f2fe"/>
+    <rect x="72" y="68" width="5" height="4" rx="1" fill="#e0f2fe"/>
+    <rect x="81" y="68" width="5" height="4" rx="1" fill="#e0f2fe"/>`, "0 0 140 90");
+
+  const SVG_HOT_AIR_BALLOON = svgWrap(`
+    <path d="M50 4C22 4 8 26 14 52c4 17 22 28 28 38h16c6-10 24-21 28-38C92 26 78 4 50 4z" fill="#ef4444"/>
+    <path d="M50 4C38 4 31 28 35 54c2 14 6 26 9 36h12c3-10 7-22 9-36C69 28 62 4 50 4z" fill="#facc15"/>
+    <path d="M50 4C46 4 43 30 45 56c1 13 2 24 3 34h4c1-10 2-21 3-34C57 30 54 4 50 4z" fill="#ef4444"/>
+    <rect x="41" y="87" width="18" height="4" rx="1" fill="#7f1d1d"/>
+    <path d="M43 91l2 11M57 91l-2 11" stroke="#78350f" stroke-width="1.5"/>
+    <rect x="42" y="102" width="16" height="13" rx="2" fill="#b45309"/>`, "0 0 100 120");
+
+  const vehicles = [
+    { group: "ground", name: "Потяг",          gen: "потяга",          emoji: "🚆" },
+    { group: "ground", name: "Автобус",        gen: "автобуса",        emoji: "🚌" },
+    { group: "ground", name: "Автомобіль",     gen: "автомобіля",      emoji: "🚗" },
+    { group: "ground", name: "Велосипед",      gen: "велосипеда",      emoji: "🚲" },
+    { group: "ground", name: "Трамвай",        gen: "трамвая",         emoji: "🚋" },
+    { group: "ground", name: "Мотоцикл",       gen: "мотоцикла",       emoji: "🏍️" },
+    { group: "ground", name: "Тролейбус",      gen: "тролейбуса",      emoji: "🚎" },
+
+    { group: "water",  name: "Корабель",       gen: "корабля",         emoji: "🚢" },
+    { group: "water",  name: "Човен",          gen: "човна",           emoji: "🛶" },
+    { group: "water",  name: "Яхта",           gen: "яхти",            emoji: "⛵" },
+    { group: "water",  name: "Катер",          gen: "катера",          emoji: "🚤" },
+    { group: "water",  name: "Пором",          gen: "порому",          emoji: "⛴️" },
+
+    { group: "air",    name: "Літак",          gen: "літака",          emoji: "✈️" },
+    { group: "air",    name: "Гелікоптер",     gen: "гелікоптера",     emoji: "🚁" },
+    { group: "air",    name: "Дирижабль",      gen: "дирижабля",       svg: SVG_AIRSHIP },
+    { group: "air",    name: "Повітряна куля", gen: "повітряної кулі", svg: SVG_HOT_AIR_BALLOON }
+  ];
+
+  /* =====================================================================
+     4. ТРАНСПОРТ і ПОСУД
+     ===================================================================== */
+  const SVG_PLATE = svgWrap(`
+    <circle cx="50" cy="50" r="45" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <circle cx="50" cy="50" r="39" fill="none" stroke="#60a5fa" stroke-width="3"/>
+    <circle cx="50" cy="50" r="29" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>`);
+
+  const SVG_FORK = svgWrap(`
+    <g transform="rotate(-30 50 50)">
+      <rect x="36" y="4"  width="5" height="26" rx="2.5" fill="#9ca3af"/>
+      <rect x="44" y="4"  width="5" height="26" rx="2.5" fill="#9ca3af"/>
+      <rect x="51" y="4"  width="5" height="26" rx="2.5" fill="#9ca3af"/>
+      <rect x="59" y="4"  width="5" height="26" rx="2.5" fill="#9ca3af"/>
+      <path d="M36 26h28c0 12-6 18-10 22h-8c-4-4-10-10-10-22z" fill="#9ca3af"/>
+      <rect x="45" y="46" width="10" height="50" rx="5" fill="#6b7280"/>
+    </g>`);
+
+  const SVG_POT = svgWrap(`
+    <rect x="5"  y="50" width="15" height="7" rx="3.5" fill="#475569"/>
+    <rect x="80" y="50" width="15" height="7" rx="3.5" fill="#475569"/>
+    <rect x="16" y="40" width="68" height="46" rx="6" fill="#94a3b8"/>
+    <rect x="23" y="47" width="6" height="32" rx="3" fill="#fff" opacity=".35"/>
+    <path d="M12 41h76c0-10-17-17-38-17s-38 7-38 17z" fill="#64748b"/>
+    <rect x="44" y="16" width="12" height="9" rx="3" fill="#334155"/>`);
+
+  // Посуд (чашки тут немає, бо вона вже є в питаннях про колір)
+  const dishes = [
+    { group: "dish", name: "Тарілка",    gen: "тарілки",    svg: SVG_PLATE },
+    { group: "dish", name: "Виделка",    gen: "виделки",    svg: SVG_FORK },
+    { group: "dish", name: "Каструля",   gen: "каструлі",   svg: SVG_POT },
+    { group: "dish", name: "Ложка",      gen: "ложки",      emoji: "🥄" },
+    { group: "dish", name: "Сковорідка", gen: "сковорідки", emoji: "🍳" },
+    { group: "dish", name: "Чайник",     gen: "чайника",    emoji: "🫖" },
+    { group: "dish", name: "Миска",      gen: "миски",      emoji: "🥣" },
+    { group: "dish", name: "Склянка",    gen: "склянки",    emoji: "🥛" }
+  ];
+
+  /* =====================================================================
+     Створення питань
+     ===================================================================== */
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  const bold = "<b>відрізняється</b>";
+  const pairKey = (x, y) => [x.name, y.name].sort().join("|");
+
+  // Пари з різних груп (форма або категорія транспорту).
+  // Спершу беруться предмети, які ще не траплялися, тому вони не повторюються.
+  function makePairs(list, count) {
+    if (count <= 0) return [];
+    const canPair = (x, y) => x.group !== y.group && x.name !== y.name;
+    let best = null;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const used = new Map(list.map(t => [t, 0]));
+      const pairs = new Set();
+      const result = [];
+      const byUsage = l => shuffle(l.slice()).sort((x, y) => used.get(x) - used.get(y));
+      while (result.length < count) {
+        const t1 = byUsage(list)[0];
+        const t2 = byUsage(list.filter(t => canPair(t1, t))).find(t => !pairs.has(pairKey(t1, t)));
+        if (!t2) break;
+        used.set(t1, used.get(t1) + 1);
+        used.set(t2, used.get(t2) + 1);
+        pairs.add(pairKey(t1, t2));
+        result.push(Math.random() < 0.5 ? [t1, t2] : [t2, t1]);
+      }
+      const maxUse = Math.max(...used.values());
+      if (result.length === count && (!best || maxUse < best.maxUse)) best = { result, maxUse };
+      if (best && best.maxUse <= 1) break;
+    }
+    return best.result.map(([a, b]) => pairQuestion(a, b));
+  }
+
+  const pairQuestion = (a, b) => ({
+    type: "pair",
+    left: a, right: b,
+    question: `Чим ${bold} ${a.name.toLowerCase()} від ${b.gen}?`
+  });
+
+  // Питання про форму: ялинка завжди в парі з шаховою дошкою,
+  // а решта пар складається з інших предметів.
+  const FIXED_SHAPE_PAIR = ["Ялинка", "Шахова дошка"];
+
+  function makeShapeQuestions(count) {
+    if (count <= 0) return [];
+    const [a, b] = shuffle(FIXED_SHAPE_PAIR.map(n => shapeThings.find(t => t.name === n)));
+    const rest = shapeThings.filter(t => !FIXED_SHAPE_PAIR.includes(t.name));
+    return [pairQuestion(a, b), ...makePairs(rest, count - 1)];
+  }
+
+  // Однаковий предмет двох різних кольорів; кожен предмет — не більше одного разу.
+  function makeColorQuestions(count) {
+    const things = [];
+    while (things.length < count) things.push(...shuffle(colorThings.slice()));
+    return things.slice(0, count).map(t => {
+      const [c1, c2] = shuffle(t.colors.slice());
+      const svg1 = DRAW[t.draw](COLORS[c1]);
+      const svg2 = DRAW[t.draw](COLORS[c2]);
+      return {
+        type: "color",
+        left: { svg: svg1 }, right: { svg: svg2 },
+        question: `Чим ${bold} ${LEFT[t.gender]} ${t.name} від ${RIGHT[t.gender]}?`
+      };
+    });
+  }
+
+  // Транспорт і посуд: кожен предмет — не більше одного разу.
+  // Транспорт береться з різних категорій (наземний, водний, повітряний)
+  // і не повторює той, що вже є в питаннях про транспорт.
+  function makeTransportDishQuestions(count, usedNames) {
+    if (count <= 0) return [];
+    const free = vehicles.filter(v => !usedNames.has(v.name));
+    const groups = shuffle([...new Set(free.map(v => v.group))])
+      .map(g => shuffle(free.filter(v => v.group === g)));
+    const picked = [];
+    for (let i = 0; picked.length < count; i++) {
+      const g = groups[i % groups.length];
+      if (g.length) picked.push(g.pop());
+    }
+    const dishList = shuffle(dishes.slice());
+    return picked.map((v, i) => {
+      const d = dishList[i % dishList.length];
+      return Math.random() < 0.5 ? pairQuestion(v, d) : pairQuestion(d, v);
+    });
+  }
+
+  // 10 питань: 3 про транспорт і посуд, решта 7 — про колір, форму й транспорт
+  // (по 2 кожного виду + ще одне випадкового виду), у випадковому порядку
+  const DISH_QUESTIONS = 3;
+
+  function makeQuestions(total) {
+    const kinds = shuffle(["color", "shape", "transport"]);
+    const rest = total - DISH_QUESTIONS;
+    const counts = { color: 0, shape: 0, transport: 0 };
+    for (let i = 0; i < rest; i++) counts[kinds[i % 3]]++;
+
+    const transportQs = makePairs(vehicles, counts.transport);
+    const usedVehicles = new Set(transportQs.flatMap(q => [q.left.name, q.right.name]));
+
+    return shuffle([
+      ...makeColorQuestions(counts.color),
+      ...makeShapeQuestions(counts.shape),
+      ...transportQs,
+      ...makeTransportDishQuestions(DISH_QUESTIONS, usedVehicles)
+    ]);
+  }
+
+  /* =====================================================================
+     Сторінка
+     ===================================================================== */
+  const items = makeQuestions(QUESTION_COUNT);
+  const answers = items.map(() => "");
+  let current = 0;
+
+  const $ = id => document.getElementById(id);
+
+  function renderImage(box, t) {
+    if (t.img) box.innerHTML = `<img src="${t.img}" alt="">`;
+    else if (t.svg) box.innerHTML = t.svg;
+    else box.innerHTML = `<div class="emoji" aria-hidden="true">${t.emoji}</div>`;
+  }
+
+  function show() {
+    const it = items[current];
+    $("progress").textContent = `Питання ${current + 1} з ${items.length}`;
+    $("bar").style.width = ((current + 1) / items.length * 100) + "%";
+
+    renderImage($("img1"), it.left);
+    renderImage($("img2"), it.right);
+
+    $("qlabel").innerHTML = it.question;
+    $("answer").value = answers[current];
+
+    $("backBtn").disabled = current === 0;
+    $("nextBtn").textContent = current === items.length - 1 ? "Завершити ✓" : "Далі →";
+  }
+
+  function save() { answers[current] = $("answer").value; }
+
+  function esc(s) {
+    return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function showResult() {
+    const html = items.map((it, i) => {
+      const a = answers[i].trim();
+      return `<div class="item">
+        <h3>${i + 1}. ${it.question}</h3>
+        <p><b>Відповідь:</b> ${a ? esc(a) : '<span class="empty">без відповіді</span>'}</p>
+      </div>`;
+    }).join("");
+    $("result").innerHTML = `<h2>Ваші відповіді</h2>${html}
+      <div class="nav">
+        <button class="secondary" id="editBtn">← Повернутися</button>
+        <button id="newBtn">Нові питання ↻</button>
+      </div>`;
+    $("quiz").style.display = "none";
+    $("result").style.display = "block";
+    $("editBtn").onclick = () => {
+      $("result").style.display = "none";
+      $("quiz").style.display = "block";
+      show();
+    };
+    $("newBtn").onclick = () => location.reload();
+  }
+
+  $("backBtn").onclick = () => {
+    save();
+    if (current > 0) { current--; show(); }
+  };
+
+  $("nextBtn").onclick = () => {
+    save();
+    if (current < items.length - 1) { current++; show(); }
+    else showResult();
+  };
+
+  $("answer").addEventListener("keydown", e => {
+    if (e.key === "Enter") $("nextBtn").click();
+  });
+
+  show();
+</script>
+</body>
+</html>
