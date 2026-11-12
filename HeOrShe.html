@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
 <style>
-/* Layout: one calm column, one question per screen: text card, question, big answer buttons, steady footer. */
+/* Layout: one calm column, one question per screen: text card, question, answer field, steady footer. */
 :root {
   --bg: #e9eef2;
   --card: #ffffff;
@@ -63,27 +63,26 @@ h1 { font-family: var(--font-display); font-weight: 600; font-size: 20px; margin
 .story span { border-radius: 6px; padding: 0 2px; }
 .show-hint .story span { background: var(--hint-bg); box-shadow: 0 0 0 2px var(--hint-bg); font-weight: 600; }
 .question { font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
-.answers { display: flex; flex-direction: column; gap: 12px; }
+form { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+label { font-size: 16px; color: var(--muted); }
+input[type="text"] {
+  font: inherit; font-size: 22px; color: var(--ink); background: var(--card);
+  border: 2px solid var(--accent); border-radius: 14px;
+  min-height: 60px; padding: 12px 18px; width: 100%;
+}
+input[type="text"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+input[type="text"].right { background: var(--good-bg); border-color: var(--good); color: var(--good); font-weight: 600; }
+input[type="text"]:disabled { opacity: 1; -webkit-text-fill-color: currentColor; }
 button {
-  font: inherit; cursor: pointer; border-radius: 14px;
-  min-height: 60px; padding: 12px 18px; text-align: left;
+  font: inherit; cursor: pointer; border-radius: 14px; border: 0;
+  min-height: 60px; padding: 12px 18px; text-align: center;
+  background: var(--accent); color: var(--accent-ink); font-size: 20px; font-weight: 600;
 }
 button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-.answers button {
-  background: var(--card); color: var(--ink); border: 2px solid var(--accent);
-  font-size: 22px; font-weight: 500;
-}
-.answers button.right { background: var(--good-bg); border-color: var(--good); color: var(--good); font-weight: 600; }
-.answers button.wrong { border-color: var(--line); color: var(--muted); text-decoration: line-through; cursor: default; }
-.answers button:disabled { cursor: default; }
+button[hidden] { display: none; }
 .feedback { min-height: 58px; font-size: 19px; margin: 0; display: flex; align-items: center; }
 .feedback.good { color: var(--good); font-weight: 600; }
 .feedback.hint { color: var(--hint); }
-.next, .again {
-  background: var(--accent); color: var(--accent-ink); border: 0;
-  font-size: 20px; font-weight: 600; text-align: center;
-}
-.next[hidden] { display: none; }
 .result { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px 20px; display: flex; flex-direction: column; gap: 14px; }
 .result .big { font-family: var(--font-display); font-weight: 600; font-size: 40px; font-variant-numeric: tabular-nums; margin: 0; }
 .result p { margin: 0; }
@@ -92,38 +91,53 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 <body>
 <main id="app"></main>
 <script>
-// k = the pair of words to highlight in the hint (pronoun + who it means)
+// a = answer shown to the learner; ok = word stems that make a typed answer right;
+// no = stems of the other person's answer (typing them makes the answer wrong).
+// The two <span>s in t are highlighted in the hint (pronoun + who it means).
 var QUESTIONS = [
   { t: "Дівчина і <span>хлопець</span> вийшли на прогулянку з собакою. <span>Він</span> був одягнений у зелену куртку, а вона у червону.",
-    q: "Якого кольору куртка у хлопця?", a: "Зелена", w: "Червона", h: "Він — це хлопець." },
+    q: "Якого кольору куртка у хлопця?", a: "Зелена", ok: ["зелен"], no: ["червон"], h: "Він — це хлопець." },
   { t: "Мама і <span>тато</span> готували вечерю. Вона різала салат, а <span>він</span> варив суп.",
-    q: "Хто варив суп?", a: "Тато", w: "Мама", h: "Він — це тато." },
+    q: "Хто варив суп?", a: "Тато", ok: ["тат"], no: ["мам"], h: "Він — це тато." },
   { t: "Брат і <span>сестра</span> грали в комп'ютерну гру. Він грав за лицаря, а <span>вона</span> за чарівницю.",
-    q: "За кого грала сестра?", a: "За чарівницю", w: "За лицаря", h: "Вона — це сестра." },
+    q: "За кого грала сестра?", a: "За чарівницю", ok: ["чарівни"], no: ["лицар"], h: "Вона — це сестра." },
   { t: "Бабуся і <span>дідусь</span> поїхали до Львова. Вона купила каву, а <span>він</span> купив шоколад.",
-    q: "Що купив дідусь?", a: "Шоколад", w: "Каву", h: "Він — це дідусь." },
+    q: "Що купив дідусь?", a: "Шоколад", ok: ["шоколад"], no: ["кав"], h: "Він — це дідусь." },
   { t: "Оля і <span>Максим</span> дивилися відео на YouTube. Їй сподобалося відео про котів, а <span>йому</span> про машини.",
-    q: "Яке відео сподобалося Максиму?", a: "Про машини", w: "Про котів", h: "Йому — це Максиму." },
+    q: "Яке відео сподобалося Максиму?", a: "Про машини", ok: ["машин"], no: ["кот", "кіт"], h: "Йому — це Максиму." },
   { t: "<span>Вчителька</span> і учень читали книжку. <span>Вона</span> читала вголос, а він слухав.",
-    q: "Хто читав уголос?", a: "Вчителька", w: "Учень", h: "Вона — це вчителька." },
+    q: "Хто читав уголос?", a: "Вчителька", ok: ["вчител", "учител"], no: ["учень", "учен"], h: "Вона — це вчителька." },
   { t: "<span>Тато</span> і донька пішли в магазин. <span>Він</span> ніс важку сумку, а вона несла хліб.",
-    q: "Що ніс тато?", a: "Важку сумку", w: "Хліб", h: "Він — це тато." },
+    q: "Що ніс тато?", a: "Важку сумку", ok: ["сумк"], no: ["хліб"], h: "Він — це тато." },
   { t: "Хлопчик і <span>дівчинка</span> малювали. У нього був синій олівець, а <span>в неї</span> жовтий.",
-    q: "Якого кольору олівець у дівчинки?", a: "Жовтий", w: "Синій", h: "В неї — це в дівчинки." },
+    q: "Якого кольору олівець у дівчинки?", a: "Жовтий", ok: ["жовт"], no: ["син"], h: "В неї — це в дівчинки." },
   { t: "<span>Андрій</span> і Катя збирали валізи. <span>Він</span> поїде до Києва, а вона до Одеси.",
-    q: "Куди поїде Андрій?", a: "До Києва", w: "До Одеси", h: "Він — це Андрій." },
+    q: "Куди поїде Андрій?", a: "До Києва", ok: ["києв", "київ"], no: ["одес"], h: "Він — це Андрій." },
   { t: "Сестра і <span>брат</span> прибирали кімнату. Вона мила підлогу, а <span>він</span> витирав пил.",
-    q: "Хто витирав пил?", a: "Брат", w: "Сестра", h: "Він — це брат." }
+    q: "Хто витирав пил?", a: "Брат", ok: ["брат"], no: ["сестр"], h: "Він — це брат." }
 ];
+var MAX_TRIES = 3;
 
 var app = document.getElementById("app");
-var index = 0, firstTry = 0, missed = false;
+var index = 0, firstTry = 0, tries = 0;
 
 function el(tag, cls, html) {
   var e = document.createElement(tag);
   if (cls) e.className = cls;
   if (html != null) e.innerHTML = html;
   return e;
+}
+
+function normalize(s) {
+  return s.toLowerCase().replace(/[ʼ’`']/g, "'").replace(/[^a-zа-яіїєґ' ]/g, " ").replace(/\s+/g, " ").trim();
+}
+function hasAny(text, stems) {
+  for (var i = 0; i < stems.length; i++) if (text.indexOf(stems[i]) !== -1) return true;
+  return false;
+}
+function isRight(value, item) {
+  var v = normalize(value);
+  return hasAny(v, item.ok) && !hasAny(v, item.no);
 }
 
 function header() {
@@ -142,49 +156,78 @@ function header() {
 
 function showQuestion() {
   var item = QUESTIONS[index];
-  missed = false;
+  tries = 0;
   app.innerHTML = "";
   app.className = "";
   app.appendChild(header());
   app.appendChild(el("p", "story", item.t));
   app.appendChild(el("p", "question", item.q));
 
-  var answers = el("div", "answers");
+  var form = el("form");
+  form.noValidate = true;
+  var label = el("label", "", "Напиши відповідь");
+  label.htmlFor = "answer";
+  var input = el("input");
+  input.type = "text";
+  input.id = "answer";
+  input.name = "answer";
+  input.lang = "uk";
+  input.autocomplete = "off";
+  input.setAttribute("autocapitalize", "off");
+  input.setAttribute("autocorrect", "off");
+  input.spellcheck = false;
+  input.setAttribute("enterkeyhint", "done");
+  var check = el("button", "", "Перевірити");
+  check.type = "submit";
+  form.appendChild(label);
+  form.appendChild(input);
+  form.appendChild(check);
+
   var feedback = el("p", "feedback");
   feedback.setAttribute("aria-live", "polite");
-  var next = el("button", "next", index === QUESTIONS.length - 1 ? "Показати результат" : "Далі");
+  var next = el("button", "", index === QUESTIONS.length - 1 ? "Показати результат" : "Далі");
   next.type = "button";
   next.hidden = true;
   next.onclick = function () { index++; index < QUESTIONS.length ? showQuestion() : showResult(); };
 
-  var options = [{ text: item.a, ok: true }, { text: item.w, ok: false }];
-  if (Math.random() < 0.5) options.reverse();
-  options.forEach(function (o) {
-    var b = el("button", "", o.text);
-    b.type = "button";
-    b.onclick = function () {
-      if (o.ok) {
-        if (!missed) firstTry++;
-        b.className = "right";
-        Array.prototype.forEach.call(answers.children, function (x) { x.disabled = true; });
-        feedback.className = "feedback good";
-        feedback.textContent = "Правильно! " + item.h;
-        app.className = "show-hint";
-        next.hidden = false;
-        next.focus();
-      } else {
-        missed = true;
-        b.className = "wrong";
-        b.disabled = true;
-        app.className = "show-hint";
-        feedback.className = "feedback hint";
-        feedback.textContent = "Подивись на жовті слова. " + item.h + " Спробуй ще раз.";
-      }
-    };
-    answers.appendChild(b);
-  });
+  function finish() {
+    input.disabled = true;
+    check.hidden = true;
+    app.className = "show-hint";
+    next.hidden = false;
+    next.focus();
+  }
 
-  app.appendChild(answers);
+  form.onsubmit = function (e) {
+    e.preventDefault();
+    if (!normalize(input.value)) {
+      feedback.className = "feedback hint";
+      feedback.textContent = "Напиши відповідь у полі.";
+      input.focus();
+      return;
+    }
+    if (isRight(input.value, item)) {
+      if (tries === 0) firstTry++;
+      input.className = "right";
+      feedback.className = "feedback good";
+      feedback.textContent = "Правильно! " + item.h;
+      finish();
+      return;
+    }
+    tries++;
+    app.className = "show-hint";
+    feedback.className = "feedback hint";
+    if (tries >= MAX_TRIES) {
+      feedback.textContent = item.h + " Відповідь: " + item.a + ".";
+      input.value = item.a;
+      finish();
+    } else {
+      feedback.textContent = "Подивись на жовті слова. " + item.h + " Спробуй ще раз.";
+      input.select();
+    }
+  };
+
+  app.appendChild(form);
   app.appendChild(feedback);
   app.appendChild(next);
 }
@@ -197,7 +240,7 @@ function showResult() {
   r.appendChild(el("p", "", "Правильно з першого разу:"));
   r.appendChild(el("p", "big", firstTry + " з " + QUESTIONS.length));
   r.appendChild(el("p", "", firstTry === QUESTIONS.length ? "Усі відповіді правильні. Чудова робота!" : "Ти дійшов до кінця. Можна спробувати ще раз."));
-  var again = el("button", "again", "Почати ще раз");
+  var again = el("button", "", "Почати ще раз");
   again.type = "button";
   again.onclick = function () { index = 0; firstTry = 0; showQuestion(); };
   r.appendChild(again);
