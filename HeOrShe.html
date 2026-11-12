@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Він чи вона: 10 питань</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one calm column, one question per screen: text card, question, big answer buttons, steady footer. */
+:root {
+  --bg: #e9eef2;
+  --card: #ffffff;
+  --ink: #14263a;
+  --muted: #5a6b7c;
+  --line: #cdd7e0;
+  --accent: #0f6e78;
+  --accent-ink: #ffffff;
+  --good: #1f7a45;
+  --good-bg: #dff2e6;
+  --hint: #8a5a00;
+  --hint-bg: #ffe9b3;
+  --font-display: "Unbounded", "Onest", system-ui, sans-serif;
+  --font-body: "Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #101a24; --card: #1a2733; --ink: #e8eef4; --muted: #9fb0c0; --line: #33475a;
+    --accent: #4fb8c4; --accent-ink: #06222a;
+    --good: #7fd6a0; --good-bg: #173a27; --hint: #ffd27a; --hint-bg: #4a3a12;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #101a24; --card: #1a2733; --ink: #e8eef4; --muted: #9fb0c0; --line: #33475a;
+  --accent: #4fb8c4; --accent-ink: #06222a;
+  --good: #7fd6a0; --good-bg: #173a27; --hint: #ffd27a; --hint-bg: #4a3a12;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 18px; line-height: 1.5;
+}
+main {
+  max-width: 620px; margin: 0 auto; padding: 20px 16px 40px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+header { display: flex; flex-direction: column; gap: 10px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: 20px; margin: 0; text-wrap: balance; }
+.progress { display: flex; align-items: center; gap: 12px; }
+.count { font-family: var(--font-display); font-weight: 500; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dots { display: flex; gap: 5px; flex: 1; }
+.dots span { flex: 1; height: 8px; border-radius: 4px; background: var(--line); }
+.dots span.done { background: var(--good); }
+.dots span.now { background: var(--accent); }
+.story {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 20px; font-size: 23px; line-height: 1.55; margin: 0;
+}
+.story span { border-radius: 6px; padding: 0 2px; }
+.show-hint .story span { background: var(--hint-bg); box-shadow: 0 0 0 2px var(--hint-bg); font-weight: 600; }
+.question { font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
+.answers { display: flex; flex-direction: column; gap: 12px; }
+button {
+  font: inherit; cursor: pointer; border-radius: 14px;
+  min-height: 60px; padding: 12px 18px; text-align: left;
+}
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.answers button {
+  background: var(--card); color: var(--ink); border: 2px solid var(--accent);
+  font-size: 22px; font-weight: 500;
+}
+.answers button.right { background: var(--good-bg); border-color: var(--good); color: var(--good); font-weight: 600; }
+.answers button.wrong { border-color: var(--line); color: var(--muted); text-decoration: line-through; cursor: default; }
+.answers button:disabled { cursor: default; }
+.feedback { min-height: 58px; font-size: 19px; margin: 0; display: flex; align-items: center; }
+.feedback.good { color: var(--good); font-weight: 600; }
+.feedback.hint { color: var(--hint); }
+.next, .again {
+  background: var(--accent); color: var(--accent-ink); border: 0;
+  font-size: 20px; font-weight: 600; text-align: center;
+}
+.next[hidden] { display: none; }
+.result { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px 20px; display: flex; flex-direction: column; gap: 14px; }
+.result .big { font-family: var(--font-display); font-weight: 600; font-size: 40px; font-variant-numeric: tabular-nums; margin: 0; }
+.result p { margin: 0; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+// k = the pair of words to highlight in the hint (pronoun + who it means)
+var QUESTIONS = [
+  { t: "Дівчина і <span>хлопець</span> вийшли на прогулянку з собакою. <span>Він</span> був одягнений у зелену куртку, а вона у червону.",
+    q: "Якого кольору куртка у хлопця?", a: "Зелена", w: "Червона", h: "Він — це хлопець." },
+  { t: "Мама і <span>тато</span> готували вечерю. Вона різала салат, а <span>він</span> варив суп.",
+    q: "Хто варив суп?", a: "Тато", w: "Мама", h: "Він — це тато." },
+  { t: "Брат і <span>сестра</span> грали в комп'ютерну гру. Він грав за лицаря, а <span>вона</span> за чарівницю.",
+    q: "За кого грала сестра?", a: "За чарівницю", w: "За лицаря", h: "Вона — це сестра." },
+  { t: "Бабуся і <span>дідусь</span> поїхали до Львова. Вона купила каву, а <span>він</span> купив шоколад.",
+    q: "Що купив дідусь?", a: "Шоколад", w: "Каву", h: "Він — це дідусь." },
+  { t: "Оля і <span>Максим</span> дивилися відео на YouTube. Їй сподобалося відео про котів, а <span>йому</span> про машини.",
+    q: "Яке відео сподобалося Максиму?", a: "Про машини", w: "Про котів", h: "Йому — це Максиму." },
+  { t: "<span>Вчителька</span> і учень читали книжку. <span>Вона</span> читала вголос, а він слухав.",
+    q: "Хто читав уголос?", a: "Вчителька", w: "Учень", h: "Вона — це вчителька." },
+  { t: "<span>Тато</span> і донька пішли в магазин. <span>Він</span> ніс важку сумку, а вона несла хліб.",
+    q: "Що ніс тато?", a: "Важку сумку", w: "Хліб", h: "Він — це тато." },
+  { t: "Хлопчик і <span>дівчинка</span> малювали. У нього був синій олівець, а <span>в неї</span> жовтий.",
+    q: "Якого кольору олівець у дівчинки?", a: "Жовтий", w: "Синій", h: "В неї — це в дівчинки." },
+  { t: "<span>Андрій</span> і Катя збирали валізи. <span>Він</span> поїде до Києва, а вона до Одеси.",
+    q: "Куди поїде Андрій?", a: "До Києва", w: "До Одеси", h: "Він — це Андрій." },
+  { t: "Сестра і <span>брат</span> прибирали кімнату. Вона мила підлогу, а <span>він</span> витирав пил.",
+    q: "Хто витирав пил?", a: "Брат", w: "Сестра", h: "Він — це брат." }
+];
+
+var app = document.getElementById("app");
+var index = 0, firstTry = 0, missed = false;
+
+function el(tag, cls, html) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html != null) e.innerHTML = html;
+  return e;
+}
+
+function header() {
+  var h = el("header");
+  h.appendChild(el("h1", "", "Він чи вона?"));
+  var p = el("div", "progress");
+  var dots = el("div", "dots");
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    dots.appendChild(el("span", i < index ? "done" : (i === index ? "now" : "")));
+  }
+  p.appendChild(dots);
+  p.appendChild(el("div", "count", Math.min(index + 1, QUESTIONS.length) + " з " + QUESTIONS.length));
+  h.appendChild(p);
+  return h;
+}
+
+function showQuestion() {
+  var item = QUESTIONS[index];
+  missed = false;
+  app.innerHTML = "";
+  app.className = "";
+  app.appendChild(header());
+  app.appendChild(el("p", "story", item.t));
+  app.appendChild(el("p", "question", item.q));
+
+  var answers = el("div", "answers");
+  var feedback = el("p", "feedback");
+  feedback.setAttribute("aria-live", "polite");
+  var next = el("button", "next", index === QUESTIONS.length - 1 ? "Показати результат" : "Далі");
+  next.type = "button";
+  next.hidden = true;
+  next.onclick = function () { index++; index < QUESTIONS.length ? showQuestion() : showResult(); };
+
+  var options = [{ text: item.a, ok: true }, { text: item.w, ok: false }];
+  if (Math.random() < 0.5) options.reverse();
+  options.forEach(function (o) {
+    var b = el("button", "", o.text);
+    b.type = "button";
+    b.onclick = function () {
+      if (o.ok) {
+        if (!missed) firstTry++;
+        b.className = "right";
+        Array.prototype.forEach.call(answers.children, function (x) { x.disabled = true; });
+        feedback.className = "feedback good";
+        feedback.textContent = "Правильно! " + item.h;
+        app.className = "show-hint";
+        next.hidden = false;
+        next.focus();
+      } else {
+        missed = true;
+        b.className = "wrong";
+        b.disabled = true;
+        app.className = "show-hint";
+        feedback.className = "feedback hint";
+        feedback.textContent = "Подивись на жовті слова. " + item.h + " Спробуй ще раз.";
+      }
+    };
+    answers.appendChild(b);
+  });
+
+  app.appendChild(answers);
+  app.appendChild(feedback);
+  app.appendChild(next);
+}
+
+function showResult() {
+  app.innerHTML = "";
+  app.className = "";
+  app.appendChild(header());
+  var r = el("div", "result");
+  r.appendChild(el("p", "", "Правильно з першого разу:"));
+  r.appendChild(el("p", "big", firstTry + " з " + QUESTIONS.length));
+  r.appendChild(el("p", "", firstTry === QUESTIONS.length ? "Усі відповіді правильні. Чудова робота!" : "Ти дійшов до кінця. Можна спробувати ще раз."));
+  var again = el("button", "again", "Почати ще раз");
+  again.type = "button";
+  again.onclick = function () { index = 0; firstTry = 0; showQuestion(); };
+  r.appendChild(again);
+  app.appendChild(r);
+}
+
+showQuestion();
+</script>
+</body>
+</html>
