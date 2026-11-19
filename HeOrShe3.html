@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Хто це — він чи вона? (3)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one calm column, one question per screen: text card, question, answer field, steady footer. */
+:root {
+  --bg: #e9eef2;
+  --card: #ffffff;
+  --ink: #14263a;
+  --muted: #5a6b7c;
+  --line: #cdd7e0;
+  --accent: #0f6e78;
+  --accent-ink: #ffffff;
+  --good: #1f7a45;
+  --good-bg: #dff2e6;
+  --hint: #8a5a00;
+  --hint-bg: #ffe9b3;
+  --font-display: "Unbounded", "Onest", system-ui, sans-serif;
+  --font-body: "Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #101a24; --card: #1a2733; --ink: #e8eef4; --muted: #9fb0c0; --line: #33475a;
+    --accent: #4fb8c4; --accent-ink: #06222a;
+    --good: #7fd6a0; --good-bg: #173a27; --hint: #ffd27a; --hint-bg: #4a3a12;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #101a24; --card: #1a2733; --ink: #e8eef4; --muted: #9fb0c0; --line: #33475a;
+  --accent: #4fb8c4; --accent-ink: #06222a;
+  --good: #7fd6a0; --good-bg: #173a27; --hint: #ffd27a; --hint-bg: #4a3a12;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 18px; line-height: 1.5;
+}
+main {
+  max-width: 620px; margin: 0 auto; padding: 20px 16px 40px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+header { display: flex; flex-direction: column; gap: 10px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: 20px; margin: 0; text-wrap: balance; }
+.progress { display: flex; align-items: center; gap: 12px; }
+.count { font-family: var(--font-display); font-weight: 500; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dots { display: flex; gap: 5px; flex: 1; }
+.dots span { flex: 1; height: 8px; border-radius: 4px; background: var(--line); }
+.dots span.done { background: var(--good); }
+.dots span.now { background: var(--accent); }
+.story {
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 20px; font-size: 23px; line-height: 1.55; margin: 0;
+}
+.story span { border-radius: 6px; padding: 0 2px; }
+.show-hint .story span { background: var(--hint-bg); box-shadow: 0 0 0 2px var(--hint-bg); font-weight: 600; }
+.question { font-size: 22px; font-weight: 600; margin: 0; text-wrap: balance; }
+form { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+label { font-size: 16px; color: var(--muted); }
+input[type="text"] {
+  font: inherit; font-size: 22px; color: var(--ink); background: var(--card);
+  border: 2px solid var(--accent); border-radius: 14px;
+  min-height: 60px; padding: 12px 18px; width: 100%;
+}
+input[type="text"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+input[type="text"].right { background: var(--good-bg); border-color: var(--good); color: var(--good); font-weight: 600; }
+input[type="text"]:disabled { opacity: 1; -webkit-text-fill-color: currentColor; }
+button {
+  font: inherit; cursor: pointer; border-radius: 14px; border: 0;
+  min-height: 60px; padding: 12px 18px; text-align: center;
+  background: var(--accent); color: var(--accent-ink); font-size: 20px; font-weight: 600;
+}
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+button[hidden] { display: none; }
+.feedback { min-height: 58px; font-size: 19px; margin: 0; display: flex; align-items: center; }
+.feedback.good { color: var(--good); font-weight: 600; }
+.feedback.hint { color: var(--hint); }
+.result { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px 20px; display: flex; flex-direction: column; gap: 14px; }
+.result .big { font-family: var(--font-display); font-weight: 600; font-size: 40px; font-variant-numeric: tabular-nums; margin: 0; }
+.result p { margin: 0; }
+.pair { display: flex; flex-direction: column; gap: 12px; }
+.row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px;
+}
+.row .who { font-size: 22px; font-weight: 600; color: var(--ink); }
+.row .dash { font-size: 22px; color: var(--muted); }
+.row input[type="text"] { flex: 1; min-width: 140px; width: auto; }
+.row .note { flex-basis: 100%; font-size: 17px; color: var(--hint); margin: 0; }
+.row .note:empty, .qnote:empty { display: none; }
+.qnote { font-size: 17px; color: var(--hint); margin: 0; }
+form .question { margin-top: 6px; color: var(--ink); }
+input[type="text"].wrong { border-color: var(--hint); }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+// p = [pronoun, person, stems of the person]; the learner writes who "він" and "вона" are.
+// q/a = question about the story; ok = stems that make the answer right; no = stems of the wrong answer.
+var QUESTIONS = [
+  { t: "<span>Сестра</span> і <span>брат</span> пішли в кіно. <span>Вона</span> купила попкорн, а <span>він</span> купив сік.",
+    p: [["Він", "брат", ["брат"]], ["Вона", "сестра", ["сестр"]]],
+    q: "Що купив брат?", a: "Сік", ok: ["сік", "сок", "соку"], no: ["попкорн"] },
+  { t: "<span>Тато</span> і <span>мама</span> прибирали квартиру. <span>Він</span> пилососив килим, а <span>вона</span> мила вікна.",
+    p: [["Він", "тато", ["тат"]], ["Вона", "мама", ["мам"]]],
+    q: "Що пилососив тато?", a: "Килим", ok: ["килим"], no: ["вікн", "вікон"] },
+  { t: "<span>Оксана</span> і <span>Петро</span> їхали на велосипедах. <span>Вона</span> їхала швидко, а <span>він</span> їхав повільно.",
+    p: [["Він", "Петро", ["петр"]], ["Вона", "Оксана", ["оксан"]]],
+    q: "Хто їхав швидко?", a: "Оксана", ok: ["оксан"], no: ["петр"] },
+  { t: "<span>Дідусь</span> і <span>бабуся</span> сиділи в саду. <span>Він</span> читав газету, а <span>вона</span> в'язала шарф.",
+    p: [["Він", "дідусь", ["дідус", "діду", "дід"]], ["Вона", "бабуся", ["бабус", "бабц", "баба"]]],
+    q: "Що в'язала бабуся?", a: "Шарф", ok: ["шарф"], no: ["газет"] },
+  { t: "<span>Продавчиня</span> і <span>покупець</span> стояли біля каси. <span>Вона</span> рахувала гроші, а <span>він</span> складав продукти в пакет.",
+    p: [["Він", "покупець", ["покуп"]], ["Вона", "продавчиня", ["продавчин", "продавщиц"]]],
+    q: "Хто складав продукти в пакет?", a: "Покупець", ok: ["покуп"], no: ["продавчин", "продавщиц"] },
+  { t: "<span>Хлопець</span> і <span>дівчина</span> гуляли під дощем. <span>Він</span> тримав парасольку, а <span>вона</span> несла торт.",
+    p: [["Він", "хлопець", ["хлоп"]], ["Вона", "дівчина", ["дівч"]]],
+    q: "Що несла дівчина?", a: "Торт", ok: ["торт"], no: ["парасол"] },
+  { t: "<span>Онучка</span> і <span>дідусь</span> рибалили на озері. <span>Вона</span> спіймала велику рибу, а <span>він</span> спіймав маленьку.",
+    p: [["Він", "дідусь", ["дідус", "діду", "дід"]], ["Вона", "онучка", ["онуч", "онук"]]],
+    q: "Хто спіймав велику рибу?", a: "Онучка", ok: ["онуч", "онук"], no: ["дід"] },
+  { t: "<span>Водій</span> і <span>пасажирка</span> їхали в таксі. <span>Він</span> дивився на дорогу, а <span>вона</span> дивилася в телефон.",
+    p: [["Він", "водій", ["водій", "водія"]], ["Вона", "пасажирка", ["пасажир"]]],
+    q: "Куди дивився водій?", a: "На дорогу", ok: ["дорог"], no: ["телефон"] },
+  { t: "<span>Ірина</span> і <span>Тарас</span> готувалися до свята. <span>Вона</span> надувала кульки, а <span>він</span> вішав гірлянду.",
+    p: [["Він", "Тарас", ["тарас"]], ["Вона", "Ірина", ["ірин", "іра"]]],
+    q: "Що надувала Ірина?", a: "Кульки", ok: ["кульк", "кульок"], no: ["гірлянд"] },
+  { t: "<span>Кухар</span> і <span>офіціантка</span> працювали в ресторані. <span>Він</span> смажив м'ясо, а <span>вона</span> приносила каву.",
+    p: [["Він", "кухар", ["кухар"]], ["Вона", "офіціантка", ["офіціант"]]],
+    q: "Що смажив кухар?", a: "М'ясо", ok: ["м'яс", "мяс"], no: ["кав"] }
+];
+var MAX_TRIES = 3;
+
+var app = document.getElementById("app");
+var index = 0, firstTry = 0, tries = 0;
+
+function el(tag, cls, html) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html != null) e.innerHTML = html;
+  return e;
+}
+function normalize(s) {
+  return s.toLowerCase().replace(/[ʼ’`']/g, "'").replace(/[^a-zа-яіїєґ' ]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function hasAny(text, stems) {
+  for (var i = 0; i < stems.length; i++) if (text.indexOf(stems[i]) !== -1) return true;
+  return false;
+}
+
+function header() {
+  var h = el("header");
+  h.appendChild(el("h1", "", "Хто це: він чи вона?"));
+  var p = el("div", "progress");
+  var dots = el("div", "dots");
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    dots.appendChild(el("span", i < index ? "done" : (i === index ? "now" : "")));
+  }
+  p.appendChild(dots);
+  p.appendChild(el("div", "count", Math.min(index + 1, QUESTIONS.length) + " з " + QUESTIONS.length));
+  h.appendChild(p);
+  return h;
+}
+
+function showQuestion() {
+  var item = QUESTIONS[index];
+  tries = 0;
+  app.innerHTML = "";
+  app.className = "";
+  app.appendChild(header());
+  app.appendChild(el("p", "story", item.t));
+  app.appendChild(el("p", "question", "Напиши: хто це?"));
+
+  var form = el("form");
+  form.noValidate = true;
+  var pair = el("div", "pair");
+  var inputs = [], notes = [];
+  item.p.forEach(function (pp, i) {
+    var row = el("div", "row");
+    var who = el("label", "who", pp[0]);
+    who.htmlFor = "answer" + i;
+    row.appendChild(who);
+    row.appendChild(el("span", "dash", "— це"));
+    var input = el("input");
+    input.type = "text";
+    input.id = "answer" + i;
+    input.lang = "uk";
+    input.autocomplete = "off";
+    input.setAttribute("autocapitalize", "off");
+    input.setAttribute("autocorrect", "off");
+    input.spellcheck = false;
+    input.setAttribute("enterkeyhint", "next");
+    row.appendChild(input);
+    var note = el("p", "note");
+    note.setAttribute("aria-live", "polite");
+    row.appendChild(note);
+    pair.appendChild(row);
+    inputs.push(input); notes.push(note);
+  });
+  [0, 1].forEach(function (i) {
+    inputs[i].addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      for (var j = i + 1; j < inputs.length; j++) if (!inputs[j].disabled) { e.preventDefault(); inputs[j].focus(); return; }
+    });
+  });
+  form.appendChild(pair);
+  var qLabel = el("label", "question", item.q);
+  qLabel.htmlFor = "answer2";
+  form.appendChild(qLabel);
+  var qInput = el("input");
+  qInput.type = "text";
+  qInput.id = "answer2";
+  qInput.lang = "uk";
+  qInput.autocomplete = "off";
+  qInput.setAttribute("autocapitalize", "off");
+  qInput.setAttribute("autocorrect", "off");
+  qInput.spellcheck = false;
+  qInput.setAttribute("enterkeyhint", "done");
+  form.appendChild(qInput);
+  var qNote = el("p", "note qnote");
+  qNote.setAttribute("aria-live", "polite");
+  form.appendChild(qNote);
+  inputs.push(qInput); notes.push(qNote);
+  var check = el("button", "", "Перевірити");
+  check.type = "submit";
+  form.appendChild(check);
+
+  function answerOf(i) { return i < 2 ? item.p[i][1] : item.a; }
+  function isRight(i, value) {
+    var v = normalize(value);
+    if (i < 2) return hasAny(v, item.p[i][2]) && !hasAny(v, item.p[1 - i][2]);
+    return hasAny(v, item.ok) && !hasAny(v, item.no);
+  }
+
+  var feedback = el("p", "feedback");
+  feedback.setAttribute("aria-live", "polite");
+  var next = el("button", "", index === QUESTIONS.length - 1 ? "Показати результат" : "Далі");
+  next.type = "button";
+  next.hidden = true;
+  next.onclick = function () { index++; index < QUESTIONS.length ? showQuestion() : showResult(); };
+
+  function finish() {
+    check.hidden = true;
+    app.className = "show-hint";
+    next.hidden = false;
+    next.focus();
+  }
+
+  form.onsubmit = function (e) {
+    e.preventDefault();
+    var empty = -1;
+    inputs.forEach(function (inp, i) { if (empty < 0 && !inp.disabled && !normalize(inp.value)) empty = i; });
+    if (empty >= 0) {
+      feedback.className = "feedback hint";
+      feedback.textContent = "Напиши відповідь у кожному полі.";
+      inputs[empty].focus();
+      return;
+    }
+    var allRight = true;
+    inputs.forEach(function (inp, i) {
+      if (inp.disabled) return;
+      if (isRight(i, inp.value)) {
+        inp.className = "right"; inp.disabled = true; notes[i].textContent = "";
+      } else {
+        allRight = false;
+        inp.className = "wrong";
+        notes[i].textContent = i < 2 ? "Подивись у текст: хто це — " + item.p[i][0].toLowerCase() + "?" : "Подивись у текст ще раз.";
+      }
+    });
+    if (allRight) {
+      if (tries === 0) firstTry++;
+      feedback.className = "feedback good";
+      feedback.textContent = "Правильно!";
+      finish();
+      return;
+    }
+    tries++;
+    app.className = "show-hint";
+    feedback.className = "feedback hint";
+    if (tries >= MAX_TRIES) {
+      inputs.forEach(function (inp, i) {
+        if (inp.disabled) return;
+        inp.value = answerOf(i);
+        inp.className = "";
+        inp.disabled = true;
+        notes[i].textContent = i < 2 ? item.p[i][0] + " — це " + item.p[i][1] + "." : "Відповідь: " + item.a + ".";
+      });
+      feedback.textContent = "Подивись на правильні відповіді.";
+      finish();
+    } else {
+      feedback.textContent = "Подивись на жовті слова і спробуй ще раз.";
+      for (var i = 0; i < inputs.length; i++) if (!inputs[i].disabled) { inputs[i].select(); break; }
+    }
+  };
+
+  app.appendChild(form);
+  app.appendChild(feedback);
+  app.appendChild(next);
+  inputs[0].focus();
+}
+
+function showResult() {
+  app.innerHTML = "";
+  app.className = "";
+  app.appendChild(header());
+  var r = el("div", "result");
+  r.appendChild(el("p", "", "Правильно з першого разу:"));
+  r.appendChild(el("p", "big", firstTry + " з " + QUESTIONS.length));
+  r.appendChild(el("p", "", firstTry === QUESTIONS.length ? "Усі відповіді правильні. Чудова робота!" : "Ти дійшов до кінця. Можна спробувати ще раз."));
+  var again = el("button", "", "Почати ще раз");
+  again.type = "button";
+  again.onclick = function () { index = 0; firstTry = 0; showQuestion(); };
+  r.appendChild(again);
+  app.appendChild(r);
+}
+
+showQuestion();
+</script>
+</body>
+</html>
