@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Знайди відмінності</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f3f5f9;
+    color: #1f2937;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    width: 100%;
+    max-width: 720px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  }
+  .progress { font-size: 14px; color: #6b7280; margin-bottom: 8px; }
+  .bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-bottom: 20px; }
+  .bar span { display: block; height: 100%; width: 0; background: #0d9488; transition: width .25s; }
+
+  .images { display: flex; gap: 16px; margin-bottom: 24px; }
+  .image-box {
+    flex: 1;
+    aspect-ratio: 1 / 1;
+    max-height: 220px;
+    border-radius: 12px;
+    background: #f4f5f7;
+    display: flex;
+    align-items: center; justify-content: center;
+    overflow: hidden;
+    padding: 8px;
+  }
+  .image-box .emoji { font-size: 88px; line-height: 1; }
+  .image-box svg { width: 72%; max-width: 155px; height: auto; }
+  .image-box img { width: 100%; height: 100%; object-fit: cover; }
+
+  .question { margin-bottom: 20px; }
+  .question label { display: block; font-weight: 400; font-size: 17px; margin-bottom: 8px; }
+  .question label b { font-weight: 700; }
+  .question input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+  }
+  .question input:focus { outline: 2px solid #99f6e4; border-color: #0d9488; }
+
+  .nav { display: flex; justify-content: space-between; margin-top: 8px; gap: 8px; }
+  button {
+    padding: 10px 24px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #0d9488;
+    color: #fff;
+  }
+  button:hover { background: #0f766e; }
+  button:disabled { background: #c7c9d1; cursor: not-allowed; }
+  button.secondary { background: #e5e7eb; color: #1f2937; }
+  button.secondary:hover { background: #d1d5db; }
+  button.secondary:disabled { background: #f0f1f4; color: #a0a4ad; }
+
+  .result { display: none; }
+  .result h2 { margin-top: 0; }
+  .result .item { border-top: 1px solid #e5e7eb; padding: 12px 0; }
+  .result .item h3 { margin: 0 0 6px; font-size: 16px; font-weight: 400; }
+  .result .item h3 b { font-weight: 700; }
+  .result .item p { margin: 4px 0; font-size: 15px; }
+  .result .empty { color: #9ca3af; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="quiz">
+    <div class="progress" id="progress"></div>
+    <div class="bar"><span id="bar"></span></div>
+
+    <div class="images">
+      <div class="image-box" id="img1"></div>
+      <div class="image-box" id="img2"></div>
+    </div>
+
+    <div class="question">
+      <label id="qlabel" for="answer"></label>
+      <input type="text" id="answer" placeholder="Ваша відповідь...">
+    </div>
+
+    <div class="nav">
+      <button class="secondary" id="backBtn">← Назад</button>
+      <button id="nextBtn">Далі →</button>
+    </div>
+  </div>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+  const QUESTION_COUNT = 10;
+
+  /* =====================================================================
+     1. КОЛІР — однаковий предмет, але різного кольору
+     ===================================================================== */
+  const COLORS = {
+    red:    { main: "#ef4444", dark: "#b91c1c" },
+    blue:   { main: "#3b82f6", dark: "#1d4ed8" },
+    green:  { main: "#22c55e", dark: "#15803d" },
+    yellow: { main: "#facc15", dark: "#ca8a04" },
+    purple: { main: "#a855f7", dark: "#7e22ce" },
+    orange: { main: "#f97316", dark: "#c2410c" }
+  };
+
+  const svgWrap = (body, vb = "0 0 100 100") =>
+    `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${body}</svg>`;
+
+  const DRAW = {
+    apple: c => svgWrap(`
+      <path d="M50 30C36 18 12 25 14 50c2 24 20 42 36 36 16 6 34-12 36-36 2-25-22-32-36-20z" fill="${c.main}"/>
+      <path d="M50 30c0-8 2-15 6-20" stroke="#78350f" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M55 20c6-10 18-10 22-6-4 8-14 10-22 6z" fill="#16a34a"/>
+      <ellipse cx="31" cy="47" rx="5" ry="10" fill="#fff" opacity=".35"/>`),
+
+    balloon: c => svgWrap(`
+      <ellipse cx="50" cy="40" rx="28" ry="33" fill="${c.main}"/>
+      <ellipse cx="39" cy="28" rx="5" ry="9" fill="#fff" opacity=".4"/>
+      <polygon points="45,74 55,74 50,80" fill="${c.dark}"/>
+      <path d="M50 80c-7 6 7 11 0 18" stroke="#6b7280" stroke-width="1.8" fill="none"/>`),
+
+    tshirt: c => svgWrap(`
+      <path d="M34 14L20 20 6 38l14 10 6-8v50h48V40l6 8 14-10-14-18-14-6c-4 8-28 8-32 0z"
+            fill="${c.main}" stroke="${c.dark}" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M34 14c4 10 28 10 32 0" stroke="${c.dark}" stroke-width="3" fill="none"/>`),
+
+    pencil: c => svgWrap(`
+      <g transform="rotate(-40 50 50)">
+        <rect x="8" y="42" width="10" height="16" rx="2" fill="#f9a8d4"/>
+        <rect x="18" y="42" width="7" height="16" fill="#9ca3af"/>
+        <rect x="25" y="42" width="46" height="16" fill="${c.main}"/>
+        <rect x="25" y="48" width="46" height="4" fill="${c.dark}" opacity=".45"/>
+        <polygon points="71,42 88,50 71,58" fill="#f5d0a9"/>
+        <polygon points="82,47.2 88,50 82,52.8" fill="${c.dark}"/>
+      </g>`),
+
+    cup: c => svgWrap(`
+      <path d="M76 42c18 0 18 28-4 28" stroke="${c.main}" stroke-width="7" fill="none"/>
+      <path d="M22 30h56l-6 54c-1 4-4 6-8 6H36c-4 0-7-2-8-6z" fill="${c.main}"/>
+      <ellipse cx="50" cy="30" rx="28" ry="5" fill="${c.dark}"/>`),
+
+    flower: c => {
+      let petals = "";
+      for (let k = 0; k < 6; k++) {
+        const a = k * Math.PI / 3;
+        petals += `<circle cx="${(50 + 16 * Math.cos(a)).toFixed(1)}" cy="${(36 + 16 * Math.sin(a)).toFixed(1)}" r="12" fill="${c.main}"/>`;
+      }
+      return svgWrap(`
+        <path d="M50 50v46" stroke="#16a34a" stroke-width="4"/>
+        <path d="M50 80c-4-10-16-12-22-8 4 8 14 12 22 8z" fill="#16a34a"/>
+        ${petals}
+        <circle cx="50" cy="36" r="10" fill="#92400e"/>`);
+    }
+  };
+
+  // gender: m — чоловічий (лівий / правого), f — жіночий (ліва / правої), n — середній (ліве / правого)
+  const colorThings = [
+    { draw: "apple",   name: "яблуко",           gender: "n", colors: ["red", "green", "yellow"] },
+    { draw: "balloon", name: "повітряна кулька", gender: "f", colors: ["red", "blue", "green", "yellow", "purple", "orange"] },
+    { draw: "tshirt",  name: "футболка",         gender: "f", colors: ["red", "blue", "green", "yellow", "purple", "orange"] },
+    { draw: "pencil",  name: "олівець",          gender: "m", colors: ["red", "blue", "green", "yellow", "purple", "orange"] },
+    { draw: "cup",     name: "чашка",            gender: "f", colors: ["red", "blue", "green", "yellow", "purple", "orange"] },
+    { draw: "flower",  name: "квітка",           gender: "f", colors: ["red", "blue", "yellow", "purple", "orange"] }
+  ];
+
+  const LEFT  = { m: "лівий",   f: "ліва",   n: "ліве" };
+  const RIGHT = { m: "правого", f: "правої", n: "правого" };
+
+  /* =====================================================================
+     2. ФОРМА — предмети різної форми
+     ===================================================================== */
+  const SVG_WHEEL = (() => {
+    let spokes = "";
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      spokes += `<line x1="50" y1="50" x2="${(50 + 26 * Math.cos(a)).toFixed(1)}" y2="${(50 + 26 * Math.sin(a)).toFixed(1)}" stroke="#6b7280" stroke-width="4" stroke-linecap="round"/>`;
+    }
+    return svgWrap(`
+      <circle cx="50" cy="50" r="47" fill="#1f2937"/>
+      <circle cx="50" cy="50" r="47" fill="none" stroke="#374151" stroke-width="3" stroke-dasharray="4 5"/>
+      <circle cx="50" cy="50" r="32" fill="#9ca3af"/>
+      <circle cx="50" cy="50" r="27" fill="#e5e7eb"/>
+      ${spokes}
+      <circle cx="50" cy="50" r="8" fill="#4b5563"/>
+      <circle cx="50" cy="50" r="3" fill="#d1d5db"/>`);
+  })();
+
+  const SVG_SQUARE_COOKIE = (() => {
+    let holes = "";
+    for (const x of [30, 50, 70]) for (const y of [30, 50, 70])
+      holes += `<circle cx="${x}" cy="${y}" r="3.2" fill="#b45309"/>`;
+    return svgWrap(`
+      <rect x="8" y="8" width="84" height="84" rx="6" fill="#c2701a"/>
+      <rect x="13" y="13" width="74" height="74" rx="4" fill="#f0a640"/>
+      <rect x="13" y="13" width="74" height="74" rx="4" fill="none" stroke="#d9862a" stroke-width="2" stroke-dasharray="3 3"/>
+      ${holes}`);
+  })();
+
+  const SVG_CHESSBOARD = (() => {
+    let cells = "";
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++)
+      cells += `<rect x="${10 + c * 10}" y="${10 + r * 10}" width="10" height="10" fill="${(r + c) % 2 ? "#7c4a21" : "#f5deb3"}"/>`;
+    return svgWrap(`<rect x="4" y="4" width="92" height="92" rx="3" fill="#5b3415"/>${cells}`);
+  })();
+
+  const SVG_ROAD_SIGN = svgWrap(`
+    <polygon points="50,8 94,88 6,88" fill="#dc2626" stroke="#dc2626" stroke-width="8" stroke-linejoin="round"/>
+    <polygon points="50,27 79,80 21,80" fill="#ffffff"/>
+    <rect x="46.5" y="42" width="7" height="22" rx="3.5" fill="#111827"/>
+    <circle cx="50" cy="71.5" r="4" fill="#111827"/>`);
+
+  const SVG_CHEESE_SLICE = svgWrap(`
+    <polygon points="12,78 88,78 88,85 12,85" fill="#e9a21a" stroke="#e9a21a" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="12,78 88,78 50,14" fill="#fcd34d" stroke="#fcd34d" stroke-width="4" stroke-linejoin="round"/>
+    <circle cx="52" cy="38" r="3.5" fill="#eab308"/>
+    <circle cx="44" cy="55" r="5"   fill="#eab308"/>
+    <circle cx="61" cy="65" r="4"   fill="#eab308"/>
+    <circle cx="37" cy="70" r="3"   fill="#eab308"/>
+    <circle cx="72" cy="74" r="2.5" fill="#eab308"/>`);
+
+  // name — називний відмінок (хто? що?), gen — родовий (від кого? чого?)
+  const shapeThings = [
+    { group: "round",     name: "Колесо",         gen: "колеса",           svg: SVG_WHEEL },
+    { group: "round",     name: "М’яч",           gen: "м’яча",            emoji: "⚽" },
+    { group: "round",     name: "Апельсин",       gen: "апельсина",        emoji: "🍊" },
+    { group: "round",     name: "Пончик",         gen: "пончика",          emoji: "🍩" },
+    { group: "round",     name: "Печиво",         gen: "печива",           emoji: "🍪" },
+    { group: "round",     name: "Годинник",       gen: "годинника",        emoji: "🕐" },
+
+    { group: "square",    name: "Печиво",         gen: "печива",           svg: SVG_SQUARE_COOKIE },
+    { group: "square",    name: "Шахова дошка",   gen: "шахової дошки",    svg: SVG_CHESSBOARD },
+    { group: "square",    name: "Гральний кубик", gen: "грального кубика", emoji: "🎲" },
+    { group: "square",    name: "Вафля",          gen: "вафлі",            emoji: "🧇" },
+    { group: "square",    name: "Кубик льоду",    gen: "кубика льоду",     emoji: "🧊" },
+
+    { group: "triangle",  name: "Шматок піци",    gen: "шматка піци",      emoji: "🍕" },
+    { group: "triangle",  name: "Шматочок сиру",  gen: "шматочка сиру",    svg: SVG_CHEESE_SLICE },
+    { group: "triangle",  name: "Ялинка",         gen: "ялинки",           emoji: "🎄" },
+    { group: "triangle",  name: "Дорожній знак",  gen: "дорожнього знака", svg: SVG_ROAD_SIGN },
+
+    { group: "rectangle", name: "Телефон",        gen: "телефону",         emoji: "📱" },
+    { group: "rectangle", name: "Шоколадка",      gen: "шоколадки",        emoji: "🍫" },
+    { group: "rectangle", name: "Конверт",        gen: "конверта",         emoji: "✉️" },
+    { group: "rectangle", name: "Книжка",         gen: "книжки",           emoji: "📕" },
+
+    { group: "oval",      name: "Яйце",           gen: "яйця",             emoji: "🥚" },
+    { group: "oval",      name: "М’яч для регбі", gen: "м’яча для регбі",  emoji: "🏉" }
+  ];
+
+  /* =====================================================================
+     3. ТРАНСПОРТ — наземний, водний і повітряний (дві різні категорії)
+     ===================================================================== */
+  const SVG_AIRSHIP = svgWrap(`
+    <path d="M30 30L10 8h14l20 18z" fill="#475569"/>
+    <path d="M30 50L10 72h14l20-18z" fill="#475569"/>
+    <path d="M26 37L4 34v12l22-3z" fill="#475569"/>
+    <ellipse cx="72" cy="40" rx="58" ry="22" fill="#94a3b8"/>
+    <ellipse cx="80" cy="31" rx="40" ry="7" fill="#cbd5e1"/>
+    <path d="M64 60v6M84 60v6" stroke="#334155" stroke-width="2"/>
+    <rect x="58" y="65" width="32" height="11" rx="5" fill="#334155"/>
+    <rect x="63" y="68" width="5" height="4" rx="1" fill="#e0f2fe"/>
+    <rect x="72" y="68" width="5" height="4" rx="1" fill="#e0f2fe"/>
+    <rect x="81" y="68" width="5" height="4" rx="1" fill="#e0f2fe"/>`, "0 0 140 90");
+
+  const SVG_HOT_AIR_BALLOON = svgWrap(`
+    <path d="M50 4C22 4 8 26 14 52c4 17 22 28 28 38h16c6-10 24-21 28-38C92 26 78 4 50 4z" fill="#ef4444"/>
+    <path d="M50 4C38 4 31 28 35 54c2 14 6 26 9 36h12c3-10 7-22 9-36C69 28 62 4 50 4z" fill="#facc15"/>
+    <path d="M50 4C46 4 43 30 45 56c1 13 2 24 3 34h4c1-10 2-21 3-34C57 30 54 4 50 4z" fill="#ef4444"/>
+    <rect x="41" y="87" width="18" height="4" rx="1" fill="#7f1d1d"/>
+    <path d="M43 91l2 11M57 91l-2 11" stroke="#78350f" stroke-width="1.5"/>
+    <rect x="42" y="102" width="16" height="13" rx="2" fill="#b45309"/>`, "0 0 100 120");
+
+  const vehicles = [
+    { group: "ground", name: "Потяг",          gen: "потяга",          emoji: "🚆" },
+    { group: "ground", name: "Автобус",        gen: "автобуса",        emoji: "🚌" },
+    { group: "ground", name: "Автомобіль",     gen: "автомобіля",      emoji: "🚗" },
+    { group: "ground", name: "Велосипед",      gen: "велосипеда",      emoji: "🚲" },
+    { group: "ground", name: "Трамвай",        gen: "трамвая",         emoji: "🚋" },
+    { group: "ground", name: "Мотоцикл",       gen: "мотоцикла",       emoji: "🏍️" },
+    { group: "ground", name: "Тролейбус",      gen: "тролейбуса",      emoji: "🚎" },
+
+    { group: "water",  name: "Корабель",       gen: "корабля",         emoji: "🚢" },
+    { group: "water",  name: "Човен",          gen: "човна",           emoji: "🛶" },
+    { group: "water",  name: "Яхта",           gen: "яхти",            emoji: "⛵" },
+    { group: "water",  name: "Катер",          gen: "катера",          emoji: "🚤" },
+    { group: "water",  name: "Пором",          gen: "порому",          emoji: "⛴️" },
+
+    { group: "air",    name: "Літак",          gen: "літака",          emoji: "✈️" },
+    { group: "air",    name: "Гелікоптер",     gen: "гелікоптера",     emoji: "🚁" },
+    { group: "air",    name: "Дирижабль",      gen: "дирижабля",       svg: SVG_AIRSHIP },
+    { group: "air",    name: "Повітряна куля", gen: "повітряної кулі", svg: SVG_HOT_AIR_BALLOON }
+  ];
+
+  /* =====================================================================
+     4. ТРАНСПОРТ і ПОСУД
+     ===================================================================== */
+  const SVG_PLATE = svgWrap(`
+    <circle cx="50" cy="50" r="45" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <circle cx="50" cy="50" r="39" fill="none" stroke="#60a5fa" stroke-width="3"/>
+    <circle cx="50" cy="50" r="29" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>`);
+
+  const SVG_FORK = svgWrap(`
+    <g transform="rotate(-30 50 50)">
+      <rect x="36" y="4"  width="5" height="26" rx="2.5" fill="#9ca3af"/>
+      <rect x="44" y="4"  width="5" height="26" rx="2.5" fill="#9ca3af"/>
+      <rect x="51" y="4"  width="5" height="26" rx="2.5" fill="#9ca3af"/>
+      <rect x="59" y="4"  width="5" height="26" rx="2.5" fill="#9ca3af"/>
+      <path d="M36 26h28c0 12-6 18-10 22h-8c-4-4-10-10-10-22z" fill="#9ca3af"/>
+      <rect x="45" y="46" width="10" height="50" rx="5" fill="#6b7280"/>
+    </g>`);
+
+  const SVG_POT = svgWrap(`
+    <rect x="5"  y="50" width="15" height="7" rx="3.5" fill="#475569"/>
+    <rect x="80" y="50" width="15" height="7" rx="3.5" fill="#475569"/>
+    <rect x="16" y="40" width="68" height="46" rx="6" fill="#94a3b8"/>
+    <rect x="23" y="47" width="6" height="32" rx="3" fill="#fff" opacity=".35"/>
+    <path d="M12 41h76c0-10-17-17-38-17s-38 7-38 17z" fill="#64748b"/>
+    <rect x="44" y="16" width="12" height="9" rx="3" fill="#334155"/>`);
+
+  // Посуд (чашки тут немає, бо вона вже є в питаннях про колір)
+  const dishes = [
+    { group: "dish", name: "Тарілка",    gen: "тарілки",    svg: SVG_PLATE },
+    { group: "dish", name: "Виделка",    gen: "виделки",    svg: SVG_FORK },
+    { group: "dish", name: "Каструля",   gen: "каструлі",   svg: SVG_POT },
+    { group: "dish", name: "Ложка",      gen: "ложки",      emoji: "🥄" },
+    { group: "dish", name: "Сковорідка", gen: "сковорідки", emoji: "🍳" },
+    { group: "dish", name: "Чайник",     gen: "чайника",    emoji: "🫖" },
+    { group: "dish", name: "Миска",      gen: "миски",      emoji: "🥣" },
+    { group: "dish", name: "Склянка",    gen: "склянки",    emoji: "🥛" }
+  ];
+
+  // Посуд ділиться на групи, щоб можна було порівнювати посуд між собою
+  const DISH_GROUP = {
+    "Тарілка": "tableware", "Миска": "tableware", "Склянка": "tableware",
+    "Ложка": "cutlery", "Виделка": "cutlery",
+    "Каструля": "cookware", "Сковорідка": "cookware", "Чайник": "cookware"
+  };
+  dishes.forEach(d => { d.group = DISH_GROUP[d.name]; });
+
+  /* =====================================================================
+     5. НОВІ КАТЕГОРІЇ: тварини, рослини, меблі, одяг, їжа, інструменти
+     name — хто? що?   gen — від кого? від чого?
+     pl: true — множина («Чим відрізняються джинси…»)
+     ===================================================================== */
+  const animals = [
+    { group: "pet",    name: "Кіт",       gen: "кота",       emoji: "🐈" },
+    { group: "pet",    name: "Собака",    gen: "собаки",     emoji: "🐕" },
+    { group: "pet",    name: "Кролик",    gen: "кролика",    emoji: "🐇" },
+    { group: "pet",    name: "Хом’як",    gen: "хом’яка",    emoji: "🐹" },
+
+    { group: "farm",   name: "Корова",    gen: "корови",     emoji: "🐄" },
+    { group: "farm",   name: "Свиня",     gen: "свині",      emoji: "🐖" },
+    { group: "farm",   name: "Вівця",     gen: "вівці",      emoji: "🐑" },
+    { group: "farm",   name: "Кінь",      gen: "коня",       emoji: "🐎" },
+    { group: "farm",   name: "Півень",    gen: "півня",      emoji: "🐓" },
+
+    { group: "wild",   name: "Слон",      gen: "слона",      emoji: "🐘" },
+    { group: "wild",   name: "Лев",       gen: "лева",       emoji: "🦁" },
+    { group: "wild",   name: "Жирафа",    gen: "жирафи",     emoji: "🦒" },
+    { group: "wild",   name: "Ведмідь",   gen: "ведмедя",    emoji: "🐻" },
+    { group: "wild",   name: "Лисиця",    gen: "лисиці",     emoji: "🦊" },
+    { group: "wild",   name: "Мавпа",     gen: "мавпи",      emoji: "🐒" },
+
+    { group: "bird",   name: "Сова",      gen: "сови",       emoji: "🦉" },
+    { group: "bird",   name: "Пінгвін",   gen: "пінгвіна",   emoji: "🐧" },
+    { group: "bird",   name: "Качка",     gen: "качки",      emoji: "🦆" },
+    { group: "bird",   name: "Орел",      gen: "орла",       emoji: "🦅" },
+
+    { group: "water",  name: "Риба",      gen: "риби",       emoji: "🐟" },
+    { group: "water",  name: "Дельфін",   gen: "дельфіна",   emoji: "🐬" },
+    { group: "water",  name: "Кит",       gen: "кита",       emoji: "🐋" },
+    { group: "water",  name: "Восьминіг", gen: "восьминога", emoji: "🐙" },
+    { group: "water",  name: "Краб",      gen: "краба",      emoji: "🦀" },
+
+    { group: "insect", name: "Метелик",   gen: "метелика",   emoji: "🦋" },
+    { group: "insect", name: "Бджола",    gen: "бджоли",     emoji: "🐝" },
+    { group: "insect", name: "Мураха",    gen: "мурахи",     emoji: "🐜" },
+    { group: "insect", name: "Сонечко",   gen: "сонечка",    emoji: "🐞" }
+  ];
+
+  const plants = [
+    { group: "tree",   name: "Дерево",            gen: "дерева",             emoji: "🌳" },
+    { group: "tree",   name: "Ялинка",            gen: "ялинки",             emoji: "🌲" },
+    { group: "tree",   name: "Пальма",            gen: "пальми",             emoji: "🌴" },
+
+    { group: "flower", name: "Тюльпан",           gen: "тюльпана",           emoji: "🌷" },
+    { group: "flower", name: "Троянда",           gen: "троянди",            emoji: "🌹" },
+    { group: "flower", name: "Соняшник",          gen: "соняшника",          emoji: "🌻" },
+
+    { group: "other",  name: "Кактус",            gen: "кактуса",            emoji: "🌵" },
+    { group: "other",  name: "Кімнатна рослина",  gen: "кімнатної рослини",  emoji: "🪴" },
+    { group: "other",  name: "Конюшина",          gen: "конюшини",           emoji: "🍀" },
+    { group: "other",  name: "Колосок пшениці",   gen: "колоска пшениці",    emoji: "🌾" },
+    { group: "other",  name: "Кленовий листок",   gen: "кленового листка",   emoji: "🍁" }
+  ];
+
+  const SVG_TABLE = svgWrap(`
+    <rect x="28" y="40" width="6" height="40" fill="#6b4423"/>
+    <rect x="66" y="40" width="6" height="40" fill="#6b4423"/>
+    <rect x="6"  y="30" width="88" height="9" rx="2" fill="#c08552"/>
+    <rect x="6"  y="38" width="88" height="5" fill="#8b5a2b"/>
+    <rect x="11" y="43" width="8" height="47" fill="#8b5a2b"/>
+    <rect x="81" y="43" width="8" height="47" fill="#8b5a2b"/>`);
+
+  const SVG_WARDROBE = svgWrap(`
+    <rect x="22" y="86" width="7" height="8" fill="#6b4423"/>
+    <rect x="71" y="86" width="7" height="8" fill="#6b4423"/>
+    <rect x="16" y="4" width="68" height="84" rx="3" fill="#8b5a2b"/>
+    <rect x="20" y="8" width="29" height="76" rx="2" fill="#c08552"/>
+    <rect x="51" y="8" width="29" height="76" rx="2" fill="#c08552"/>
+    <rect x="43" y="40" width="3" height="13" rx="1.5" fill="#4b2e16"/>
+    <rect x="54" y="40" width="3" height="13" rx="1.5" fill="#4b2e16"/>`);
+
+  const SVG_BOOKSHELF = (() => {
+    const colors = ["#ef4444", "#3b82f6", "#22c55e", "#facc15", "#a855f7", "#f97316", "#14b8a6"];
+    const rows = [
+      [[7, 20], [6, 17], [8, 21], [6, 15], [7, 19], [5, 18]],
+      [[8, 18], [6, 21], [7, 16], [9, 20], [6, 17]],
+      [[6, 19], [8, 21], [7, 15], [6, 20], [8, 18], [6, 16]]
+    ];
+    const bottoms = [34, 62, 89];
+    let books = "", ci = 0;
+    rows.forEach((row, r) => {
+      let x = 21;
+      row.forEach(([w, h]) => {
+        books += `<rect x="${x}" y="${bottoms[r] - h}" width="${w}" height="${h}" rx="1" fill="${colors[ci++ % colors.length]}"/>`;
+        x += w + 1;
+      });
+    });
+    return svgWrap(`
+      <rect x="14" y="4" width="72" height="92" rx="2" fill="#8b5a2b"/>
+      <rect x="19" y="9" width="62" height="82" fill="#f3e3cc"/>
+      <rect x="19" y="34" width="62" height="5" fill="#8b5a2b"/>
+      <rect x="19" y="62" width="62" height="5" fill="#8b5a2b"/>
+      ${books}`);
+  })();
+
+  const SVG_DRESSER = (() => {
+    let drawers = "";
+    for (const y of [22, 45, 68]) {
+      drawers += `<rect x="16" y="${y}" width="68" height="19" rx="2" fill="#c08552"/>
+        <circle cx="38" cy="${y + 9.5}" r="2.8" fill="#4b2e16"/>
+        <circle cx="62" cy="${y + 9.5}" r="2.8" fill="#4b2e16"/>`;
+    }
+    return svgWrap(`
+      <rect x="16" y="88" width="7" height="7" fill="#6b4423"/>
+      <rect x="77" y="88" width="7" height="7" fill="#6b4423"/>
+      <rect x="10" y="14" width="80" height="6" rx="2" fill="#6b4423"/>
+      <rect x="12" y="18" width="76" height="72" rx="2" fill="#8b5a2b"/>
+      ${drawers}`);
+  })();
+
+  const furniture = [
+    { group: "sit",    name: "Стілець",          gen: "стільця",           emoji: "🪑" },
+    { group: "sit",    name: "Диван",            gen: "дивана",            emoji: "🛋️" },
+    { group: "sleep",  name: "Ліжко",            gen: "ліжка",             emoji: "🛏️" },
+    { group: "table",  name: "Стіл",             gen: "стола",             svg: SVG_TABLE },
+    { group: "store",  name: "Шафа",             gen: "шафи",              svg: SVG_WARDROBE },
+    { group: "store",  name: "Книжкова полиця",  gen: "книжкової полиці",  svg: SVG_BOOKSHELF },
+    { group: "store",  name: "Комод",            gen: "комода",            svg: SVG_DRESSER },
+    { group: "other",  name: "Дзеркало",         gen: "дзеркала",          emoji: "🪞" }
+  ];
+
+  const clothes = [
+    { group: "top",    name: "Футболка",   gen: "футболки",   emoji: "👕" },
+    { group: "top",    name: "Куртка",     gen: "куртки",     emoji: "🧥" },
+    { group: "top",    name: "Сукня",      gen: "сукні",      emoji: "👗" },
+    { group: "top",    name: "Сорочка",    gen: "сорочки",    emoji: "👔" },
+
+    { group: "bottom", name: "Джинси",     gen: "джинсів",    emoji: "👖", pl: true },
+    { group: "bottom", name: "Шорти",      gen: "шортів",     emoji: "🩳", pl: true },
+
+    { group: "feet",   name: "Шкарпетки",  gen: "шкарпеток",  emoji: "🧦", pl: true },
+    { group: "feet",   name: "Кросівки",   gen: "кросівок",   emoji: "👟", pl: true },
+    { group: "feet",   name: "Чоботи",     gen: "чобіт",      emoji: "👢", pl: true },
+
+    { group: "head",   name: "Кепка",      gen: "кепки",      emoji: "🧢" },
+    { group: "head",   name: "Капелюх",    gen: "капелюха",   emoji: "🎩" },
+
+    { group: "warm",   name: "Рукавиці",   gen: "рукавиць",   emoji: "🧤", pl: true },
+    { group: "warm",   name: "Шарф",       gen: "шарфа",      emoji: "🧣" }
+  ];
+
+  const food = [
+    { group: "fruit", name: "Яблуко",     gen: "яблука",     emoji: "🍎" },
+    { group: "fruit", name: "Банан",      gen: "банана",     emoji: "🍌" },
+    { group: "fruit", name: "Виноград",   gen: "винограду",  emoji: "🍇" },
+    { group: "fruit", name: "Полуниця",   gen: "полуниці",   emoji: "🍓" },
+    { group: "fruit", name: "Кавун",      gen: "кавуна",     emoji: "🍉" },
+    { group: "fruit", name: "Лимон",      gen: "лимона",     emoji: "🍋" },
+    { group: "fruit", name: "Груша",      gen: "груші",      emoji: "🍐" },
+
+    { group: "veg",   name: "Морква",     gen: "моркви",     emoji: "🥕" },
+    { group: "veg",   name: "Огірок",     gen: "огірка",     emoji: "🥒" },
+    { group: "veg",   name: "Помідор",    gen: "помідора",   emoji: "🍅" },
+    { group: "veg",   name: "Картопля",   gen: "картоплі",   emoji: "🥔" },
+    { group: "veg",   name: "Цибуля",     gen: "цибулі",     emoji: "🧅" },
+    { group: "veg",   name: "Броколі",    gen: "броколі",    emoji: "🥦" },
+    { group: "veg",   name: "Кукурудза",  gen: "кукурудзи",  emoji: "🌽" },
+
+    { group: "other", name: "Хліб",       gen: "хліба",      emoji: "🍞" },
+    { group: "other", name: "Сир",        gen: "сиру",       emoji: "🧀" },
+    { group: "other", name: "Морозиво",   gen: "морозива",   emoji: "🍦" },
+    { group: "other", name: "Торт",       gen: "торта",      emoji: "🎂" }
+  ];
+
+  // Інструменти лише порівнюються з предметами інших категорій
+  const tools = [
+    { group: "tool", name: "Молоток",        gen: "молотка",         emoji: "🔨" },
+    { group: "tool", name: "Гайковий ключ",  gen: "гайкового ключа", emoji: "🔧" },
+    { group: "tool", name: "Ножиці",         gen: "ножиць",          emoji: "✂️", pl: true },
+    { group: "tool", name: "Лінійка",        gen: "лінійки",         emoji: "📏" },
+    { group: "tool", name: "Ліхтарик",       gen: "ліхтарика",       emoji: "🔦" },
+    { group: "tool", name: "Сокира",         gen: "сокири",          emoji: "🪓" }
+  ];
+
+  const CATEGORIES = {
+    animals, plants, furniture, clothes, food, tools,
+    transport: vehicles,
+    dishes
+  };
+
+  /* =====================================================================
+     Створення питань
+     ===================================================================== */
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  const verb = t => `<b>${t.pl ? "відрізняються" : "відрізняється"}</b>`;
+  const key  = t => t.name.toLowerCase();
+
+  const pairQuestion = (a, b) => ({
+    type: "pair",
+    left: a, right: b,
+    question: `Чим ${verb(a)} ${a.name.toLowerCase()} від ${b.gen}?`
+  });
+
+  const orderRandom = (a, b) => Math.random() < 0.5 ? pairQuestion(a, b) : pairQuestion(b, a);
+
+  // Предмети не повторюються в межах одного набору питань
+  const used = new Set();
+  const free = list => list.filter(t => !used.has(key(t)));
+  const take = (...ts) => ts.forEach(t => used.add(key(t)));
+
+  // 1. Колір: однаковий предмет двох різних кольорів
+  function makeColorQuestion() {
+    const t = shuffle(colorThings.slice())[0];
+    const [c1, c2] = shuffle(t.colors.slice());
+    used.add(t.name.toLowerCase());
+    return {
+      type: "color",
+      left: { svg: DRAW[t.draw](COLORS[c1]) }, right: { svg: DRAW[t.draw](COLORS[c2]) },
+      question: `Чим <b>відрізняється</b> ${LEFT[t.gender]} ${t.name} від ${RIGHT[t.gender]}?`
+    };
+  }
+
+  // 2. Форма: ялинка завжди в парі з шаховою дошкою
+  function makeShapeQuestion() {
+    const [a, b] = shuffle(["Ялинка", "Шахова дошка"].map(n => shapeThings.find(t => t.name === n)));
+    take(a, b);
+    return pairQuestion(a, b);
+  }
+
+  // 3. Одна категорія, різні групи (наприклад, кіт і риба, стілець і шафа)
+  function sameCategoryPair(cat) {
+    const list = shuffle(free(CATEGORIES[cat]));
+    for (const a of list) {
+      const b = list.find(t => t.group !== a.group);
+      if (b) { take(a, b); return orderRandom(a, b); }
+    }
+    return null;
+  }
+
+  // 4. Різні категорії (наприклад, кіт і стілець, яблуко і молоток)
+  function crossCategoryPair(cat1, cat2) {
+    const a = shuffle(free(CATEGORIES[cat1]))[0];
+    const b = shuffle(free(CATEGORIES[cat2]))[0];
+    if (!a || !b) return null;
+    take(a, b);
+    return orderRandom(a, b);
+  }
+
+  // 10 питань: 1 про колір, 1 про форму,
+  // 4 — два предмети з однієї категорії, 4 — з різних категорій
+  const SAME_CATEGORY = 4;
+  const CROSS_CATEGORY = 4;
+
+  function makeQuestions() {
+    used.clear();
+    const qs = [makeColorQuestion(), makeShapeQuestion()];
+
+    const withGroups = Object.keys(CATEGORIES)
+      .filter(c => new Set(CATEGORIES[c].map(t => t.group)).size > 1);
+    for (const cat of shuffle(withGroups).slice(0, SAME_CATEGORY)) {
+      const q = sameCategoryPair(cat);
+      if (q) qs.push(q);
+    }
+
+    const cats = shuffle(Object.keys(CATEGORIES));
+    for (let i = 0; i < CROSS_CATEGORY; i++) {
+      const q = crossCategoryPair(cats[(2 * i) % cats.length], cats[(2 * i + 1) % cats.length]);
+      if (q) qs.push(q);
+    }
+    return shuffle(qs);
+  }
+
+  /* =====================================================================
+     Сторінка
+     ===================================================================== */
+  const items = makeQuestions(QUESTION_COUNT);
+  const answers = items.map(() => "");
+  let current = 0;
+
+  const $ = id => document.getElementById(id);
+
+  function renderImage(box, t) {
+    if (t.img) box.innerHTML = `<img src="${t.img}" alt="">`;
+    else if (t.svg) box.innerHTML = t.svg;
+    else box.innerHTML = `<div class="emoji" aria-hidden="true">${t.emoji}</div>`;
+  }
+
+  function show() {
+    const it = items[current];
+    $("progress").textContent = `Питання ${current + 1} з ${items.length}`;
+    $("bar").style.width = ((current + 1) / items.length * 100) + "%";
+
+    renderImage($("img1"), it.left);
+    renderImage($("img2"), it.right);
+
+    $("qlabel").innerHTML = it.question;
+    $("answer").value = answers[current];
+
+    $("backBtn").disabled = current === 0;
+    $("nextBtn").textContent = current === items.length - 1 ? "Завершити ✓" : "Далі →";
+  }
+
+  function save() { answers[current] = $("answer").value; }
+
+  function esc(s) {
+    return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function showResult() {
+    const html = items.map((it, i) => {
+      const a = answers[i].trim();
+      return `<div class="item">
+        <h3>${i + 1}. ${it.question}</h3>
+        <p><b>Відповідь:</b> ${a ? esc(a) : '<span class="empty">без відповіді</span>'}</p>
+      </div>`;
+    }).join("");
+    $("result").innerHTML = `<h2>Ваші відповіді</h2>${html}
+      <div class="nav">
+        <button class="secondary" id="editBtn">← Повернутися</button>
+        <button id="newBtn">Нові питання ↻</button>
+      </div>`;
+    $("quiz").style.display = "none";
+    $("result").style.display = "block";
+    $("editBtn").onclick = () => {
+      $("result").style.display = "none";
+      $("quiz").style.display = "block";
+      show();
+    };
+    $("newBtn").onclick = () => location.reload();
+  }
+
+  $("backBtn").onclick = () => {
+    save();
+    if (current > 0) { current--; show(); }
+  };
+
+  $("nextBtn").onclick = () => {
+    save();
+    if (current < items.length - 1) { current++; show(); }
+    else showResult();
+  };
+
+  $("answer").addEventListener("keydown", e => {
+    if (e.key === "Enter") $("nextBtn").click();
+  });
+
+  show();
+</script>
+</body>
+</html>
